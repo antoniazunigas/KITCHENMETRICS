@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+<meta charset="UTF-8">
+<title>Panel Funcionario</title>
+ <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+
+<div class="container">
+
+<div class="card">
+<h2>Bienvenido {{ nombre }}</h2>
+</div>
+
+<div class="card">
+<h2>Menú del día</h2>
+
+<table>
+
+<tr>
+<th>Plato</th>
+<th>Dieta</th>
+<th>Fecha</th>
+</tr>
+
+{% for menu in menus %}
+
+<tr>
+<td>{{ menu.nombre_plato }}</td>
+<td>{{ menu.tipo_dieta }}</td>
+<td>{{ menu.fecha_menu }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+<br>
+
+<button>Reservar almuerzo</button>
+
+</div>
+
+</div>
+
+<header>
+<h1>KitchenMetrics</h1>
+<form action="/logout">
+<button class="logout">Cerrar sesión</button>
+</form>
+</header>
+
+</body>
+</html>

@@ -1,0 +1,261 @@
+/* Estilos Globales */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(rgba(44, 62, 80, 0.8), rgba(44, 62, 80, 0.8)), 
+                url('https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=1000');
+    background-size: cover;
+    background-position: center;
+    height: 100vh;
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+}
+
+/* Tarjeta de Login */
+.login-card {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    width: 100%; 
+    max-width: 360px;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+/* Contenedor del Logo */
+.logo-container {
+    margin-bottom: 15px;
+}
+
+.logo-image {
+    max-width: 220px; /* Ajuste para que el logo se vea equilibrado */
+    height: auto;
+    margin: 0 auto;
+    display: block;
+}
+
+.slogan { 
+    color: #95a5a6; 
+    font-style: italic; 
+    margin-bottom: 2rem; 
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Alertas de Flask */
+.alert {
+    background: #e74c3c; 
+    color: white;
+    padding: 12px; 
+    border-radius: 8px;
+    margin-bottom: 1.5rem; 
+    font-size: 0.85rem;
+    font-weight: bold;
+    animation: fadeIn 0.5s;
+}
+
+
+input {
+    width: 100%; 
+    padding: 15px; 
+    margin-bottom: 1.2rem;
+    border: 2px solid #f1f3f4; 
+    border-radius: 10px;
+    box-sizing: border-box; 
+    font-size: 1.1rem;
+    text-align: center; 
+    transition: all 0.3s;
+}
+
+input:focus {
+    border-color: #27ae60; 
+    outline: none; 
+    background: #fff;
+    box-shadow: 0 0 8px rgba(39, 174, 96, 0.2);
+}
+
+button {
+    width: 100%; 
+    padding: 15px;
+    background: #27ae60; 
+    color: white;
+    border: none; 
+    border-radius: 10px;
+    font-weight: bold; 
+    font-size: 1rem;
+    cursor: pointer; 
+    transition: 0.3s;
+    text-transform: uppercase; 
+    letter-spacing: 1px;
+}
+
+button:hover { 
+    background: #219150; 
+    transform: translateY(-2px); 
+    box-shadow: 0 8px 15px rgba(39, 174, 96, 0.3); 
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ============================= */
+/* CONFIGURACION PARA LAS VISTAS */
+/* ============================= */
+
+/* Ajuste cuando el body tiene header fijo */
+body{
+padding-top:90px;
+align-items:flex-start; /* evita que las vistas queden centradas */
+}
+
+/* Header superior del sistema */
+header{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+background:#2c3e50;
+color:white;
+padding:15px 30px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+box-shadow:0px 2px 8px rgba(0,0,0,0.3);
+z-index:1000;
+}
+
+header h1{
+margin:0;
+font-size:1.4rem;
+letter-spacing:1px;
+}
+
+/* Botón cerrar sesión */
+.logout{
+background:#e74c3c;
+border:none;
+color:white;
+padding:8px 15px;
+border-radius:6px;
+cursor:pointer;
+width:auto;
+font-size:0.9rem;
+}
+
+.logout:hover
+
+/* ============================= */
+/* CONTENEDOR PRINCIPAL */
+/* ============================= */
+
+.container{
+width:90%;
+max-width:1100px;
+margin:auto;
+display:flex;
+flex-direction:column;
+gap:25px;
+}
+
+/* ============================= */
+/* TARJETAS DEL SISTEMA */
+/* ============================= */
+
+.card{
+background:white;
+padding:25px;
+border-radius:14px;
+box-shadow:0px 6px 18px rgba(0,0,0,0.2);
+animation:fadeIn 0.5s ease;
+}
+
+.card h2{
+margin-top:0;
+margin-bottom:20px;
+color:#2c3e50;
+}
+
+/* ============================= */
+/* TABLAS DEL SISTEMA */
+/* ============================= */
+
+table{
+width:100%;
+border-collapse:collapse;
+overflow:hidden;
+border-radius:10px;
+background:white;
+}
+
+table th{
+background:#34495e;
+color:white;
+padding:12px;
+font-weight:600;
+text-align:left;
+}
+
+table td{
+padding:12px;
+border-bottom:1px solid #ecf0f1;
+}
+
+table tr:nth-child(even){
+background:#f8f9fa;
+}
+
+table tr:hover
+
+/* ============================= */
+/* BOTONES DE ACCION */
+/* ============================= */
+
+.card button{
+width:auto;
+padding:10px 18px;
+margin-top:10px;
+}
+
+/* ============================= */
+/* TITULOS DE PANEL */
+/* ============================= */
+
+.panel-title{
+font-size:1.4rem;
+font-weight:bold;
+color:#2c3e50;
+margin-bottom:10px;
+}
+
+/* ============================= */
+/* RESPONSIVE */
+/* ============================= */
+
+@media (max-width:768px){
+
+.container{
+width:95%;
+}
+
+header{
+flex-direction:column;
+gap:10px;
+text-align:center;
+}
+
+header h1{
+font-size:1.1rem;
+}
+
+table th,
+table td{
+font-size:0.85rem;
+padding:8px;
+}
+
+}

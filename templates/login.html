@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KitchenMetrics - Acceso Seguro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" 
+                 alt="KitchenMetrics Logo" 
+                 class="logo-image">
+        </div>
+
+        <div class="slogan">"Sincronizando la demanda, optimizando el recurso."</div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="/login" method="POST" id="loginForm">
+            <input type="text" 
+                   name="rut" 
+                   id="rutInput" 
+                   placeholder="RUT sin puntos ni guion" 
+                   required 
+                   maxlength="9"
+                   autocomplete="off"
+                   oninput="this.value = this.value.replace(/[^0-9kK]/g, '').toUpperCase()">
+            
+            <button type="submit">INGRESAR AL SISTEMA</button>
+        </form>
+    </div>
+
+    <script>
+        // Bloqueo de pegado de caracteres no válidos
+        const input = document.getElementById('rutInput');
+        input.addEventListener('paste', (e) => {
+            let paste = (e.clipboardData || window.clipboardData).getData('text');
+            if (!/^[0-9kK]+$/.test(paste)) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
