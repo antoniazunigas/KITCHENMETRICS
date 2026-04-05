@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+<meta charset="UTF-8">
+<title>Panel Cocina</title>
+
+ <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+
+<div class="container">
+
+<div class="card">
+<h2>Chef {{ nombre }}</h2>
+</div>
+
+<div class="card">
+<h2>Reservas registradas</h2>
+
+<table>
+
+<tr>
+<th>ID Reserva</th>
+<th>ID Usuario</th>
+<th>ID Menu</th>
+<th>Retirado</th>
+</tr>
+
+{% for r in reservas %}
+
+<tr>
+<td>{{ r.id_reserva }}</td>
+<td>{{ r.id_usuario }}</td>
+<td>{{ r.id_menu }}</td>
+<td>{{ r.fue_retirado }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+<header>
+<h1>KitchenMetrics - Cocina</h1>
+
+<form action="/logout">
+<button class="logout">Cerrar sesión</button>
+</form>
+
+</header>
+
+</body>
+</html>

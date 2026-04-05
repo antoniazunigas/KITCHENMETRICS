@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KitchenMetrics - Panel Funcionario</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/funcionario.css') }}">
+</head>
+<body class="dashboard-body">
+
+    <header>
+        <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo" class="header-logo">
+        <div class="user-info">
+            <span class="user-name">👤 {{ nombre }}</span>
+            <a href="/logout" class="logout-btn">CERRAR SESIÓN</a>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}" style="padding:15px; margin-bottom:20px; border-radius:10px; background:{% if category=='success' %}#d4edda{% else %}#fff3cd{% endif %}; color:{% if category=='success' %}#155724{% else %}#856404{% endif %}; border:1px solid">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <h2>🍴 Reserva de Almuerzo</h2>
+            <p class="text-muted">Selecciona el menú de tu preferencia para hoy.</p>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Plato Principal</th>
+                            <th>Régimen</th>
+                            <th>Fecha</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for menu in menus %}
+                        <tr>
+                            <td><strong>{{ menu.nombre_plato }}</strong></td>
+                            <td><span class="tag-dieta">{{ menu.tipo_dieta }}</span></td>
+                            <td>{{ menu.fecha_menu }}</td>
+                            <td class="text-center">
+                                <form action="{{ url_for('reservar', id_menu=menu.id_menu) }}" method="POST" onsubmit="return confirmarReserva('{{ menu.nombre_plato }}')">
+                                    <button type="submit" class="btn-action" {% if reserva_activa %}disabled style="opacity:0.5; cursor:not-allowed"{% endif %}>
+                                        {% if reserva_activa %}Bloqueado{% else %}Reservar Ahora{% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if reserva_activa %}
+        <div class="card card-exito">
+            <div class="exito-contenido">
+                <h3>✅ Tienes una reserva activa</h3>
+                <p>Plato: <strong>{{ reserva_activa.menu.nombre_plato }}</strong></p>
+                <div class="advertencia-hora">⚠️ Retirar máximo a las 15:00 del día de mañana.</div>
+                
+                <form action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST">
+                    <button type="submit" class="btn-retirado">ALMUERZO RETIRADO</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card card-asistencia">
+            <div class="asistencia-info">
+                <h3>Mi Estado de Asistencia</h3>
+                <p>Tu compromiso ayuda a reducir el desperdicio.</p>
+            </div>
+            <div class="badge-contenedor">
+                <span class="badge-label">Faltas Acumuladas</span>
+                <span class="badge-numero" style="color: {% if faltas == 0 %}#27ae60{% else %}#e74c3c{% endif %};">
+                    {{ faltas }}
+                </span>
+                <p class="badge-mensaje">
+                    {% if faltas == 0 %} ¡Excelente! Sigue así. 🌟
+                    {% elif faltas < 3 %} Vas bien, ¡no faltes!
+                    {% else %} Atención: Varias faltas acumuladas.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function confirmarReserva(plato) {
+            return confirm(`¿Estás seguro de que quieres ${plato}? \nRecuerda que al reservar no hay cambios.`);
+        }
+    </script>
+</body>
+</html>
