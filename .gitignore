@@ -1,1 +1,19 @@
+venv/# Entornos virtuales
 venv/
+.env
+.env.*
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Migraciones locales (no se comparten)
+migrations/
+alembic.ini
+
+# Archivos temporales / editores
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

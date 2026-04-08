@@ -42,13 +42,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for menu in menus %}
+                        {% for jornada in jornadas %}
                         <tr>
-                            <td><strong>{{ menu.nombre_plato }}</strong></td>
-                            <td><span class="tag-dieta">{{ menu.tipo_dieta }}</span></td>
-                            <td>{{ menu.fecha_menu }}</td>
+                            <td><strong>Menú del {{ jornada.menu_dia.fecha }}</strong></td>
+                            <td><span class="tag-dieta">Raciones: {{ jornada.raciones_disponibles }}</span></td>
+                            <td>{{ jornada.menu_dia.estado }}</td>
                             <td class="text-center">
-                                <form action="{{ url_for('reservar', id_menu=menu.id_menu) }}" method="POST" onsubmit="return confirmarReserva('{{ menu.nombre_plato }}')">
+                                <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST" onsubmit="return confirmarReserva('Almuerzo')">
                                     <button type="submit" class="btn-action" {% if reserva_activa %}disabled style="opacity:0.5; cursor:not-allowed"{% endif %}>
                                         {% if reserva_activa %}Bloqueado{% else %}Reservar Ahora{% endif %}
                                     </button>
@@ -65,7 +65,7 @@
         <div class="card card-exito">
             <div class="exito-contenido">
                 <h3>✅ Tienes una reserva activa</h3>
-                <p>Plato: <strong>{{ reserva_activa.menu.nombre_plato }}</strong></p>
+                <p>Menú del: <strong>{{ reserva_activa.jornada.menu_dia.fecha }}</strong></p>
                 <div class="advertencia-hora">⚠️ Retirar máximo a las 15:00 del día de mañana.</div>
                 
                 <form action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST">
