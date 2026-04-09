@@ -20,34 +20,29 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert">{{ message }}</div>
+              <div class="alert-error">
+                {{ message }}
+              </div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
         <form action="/login" method="POST" id="loginForm">
-            <input type="text" 
-                   name="rut" 
-                   id="rutInput" 
-                   placeholder="RUT sin puntos ni guion" 
+            <input type="email" 
+                   name="email" 
+                   placeholder="Correo Institucional (@hospital.cl)" 
                    required 
-                   maxlength="9"
-                   autocomplete="off"
-                   oninput="this.value = this.value.replace(/[^0-9kK]/g, '').toUpperCase()">
+                   autocomplete="email">
+            
+            <input type="password" 
+                   name="password" 
+                   placeholder="Contraseña" 
+                   required 
+                   autocomplete="current-password">
             
             <button type="submit">INGRESAR AL SISTEMA</button>
         </form>
     </div>
 
-    <script>
-        // Bloqueo de pegado de caracteres no válidos
-        const input = document.getElementById('rutInput');
-        input.addEventListener('paste', (e) => {
-            let paste = (e.clipboardData || window.clipboardData).getData('text');
-            if (!/^[0-9kK]+$/.test(paste)) {
-                e.preventDefault();
-            }
-        });
-    </script>
 </body>
 </html>

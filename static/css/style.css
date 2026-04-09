@@ -41,9 +41,9 @@ body {
     font-weight: 500;
 }
 
-.alert {
-    background: #e74c3c; 
-    color: white;
+.alert-error {
+    background: #df3320; 
+    color: rgb(255, 255, 255);
     padding: 12px; 
     border-radius: 8px;
     margin-bottom: 1.5rem; 

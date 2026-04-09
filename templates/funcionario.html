@@ -28,31 +28,70 @@
         {% endwith %}
 
         <div class="card">
-            <h2>🍴 Reserva de Almuerzo</h2>
-            <p class="text-muted">Selecciona el menú de tu preferencia para hoy.</p>
+            <h2>🍴 Reserva de Almuerzo Anticipada</h2>
+            <p class="text-muted">Selecciona tu menú para el día de mañana.</p>
 
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>Plato Principal</th>
-                            <th>Régimen</th>
-                            <th>Fecha</th>
+                            <th>Detalle del Menú (Entrada + Fondo + Postre)</th>
+                            <th>Régimen / Dieta</th>
+                            <th>Fecha del Servicio</th>
                             <th class="text-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for jornada in jornadas %}
                         <tr>
-                            <td><strong>Menú del {{ jornada.menu_dia.fecha }}</strong></td>
-                            <td><span class="tag-dieta">Raciones: {{ jornada.raciones_disponibles }}</span></td>
-                            <td>{{ jornada.menu_dia.estado }}</td>
+                            <td>
+                                {% if loop.index0 % 3 == 0 %}
+                                    <strong>🍱 {{ jornada.menu_dia.detalles[1].plato.nombre }}</strong><br>
+                                    <small style="color: #666;">
+                                        🥗 {{ jornada.menu_dia.detalles[0].plato.nombre }} | 
+                                        🍰 {{ jornada.menu_dia.detalles[2].plato.nombre }}
+                                    </small>
+                                {% elif loop.index0 % 3 == 1 %}
+                                    <strong>🍱 {{ jornada.menu_dia.detalles[4].plato.nombre }}</strong><br>
+                                    <small style="color: #666;">
+                                        🥗 {{ jornada.menu_dia.detalles[3].plato.nombre }} | 
+                                        🍰 {{ jornada.menu_dia.detalles[5].plato.nombre }}
+                                    </small>
+                                {% else %}
+                                    <strong>🍱 {{ jornada.menu_dia.detalles[7].plato.nombre }}</strong><br>
+                                    <small style="color: #666;">
+                                        🥗 {{ jornada.menu_dia.detalles[6].plato.nombre }} | 
+                                        🍰 {{ jornada.menu_dia.detalles[8].plato.nombre }}
+                                    </small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="tag-dieta" style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 5px; font-weight: bold;">
+                                    {% if loop.index0 % 3 == 2 %}Vegano{% else %}Normal{% endif %}
+                                </span>
+                            </td>
+                            <td><strong>{{ jornada.menu_dia.fecha }}</strong></td>
                             <td class="text-center">
-                                <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST" onsubmit="return confirmarReserva('Almuerzo')">
-                                    <button type="submit" class="btn-action" {% if reserva_activa %}disabled style="opacity:0.5; cursor:not-allowed"{% endif %}>
-                                        {% if reserva_activa %}Bloqueado{% else %}Reservar Ahora{% endif %}
+                                <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST" onsubmit="return confirmarReserva()">
+                                    <button type="submit" class="btn-action" 
+                                        {% if reserva_activa or jornada.raciones_disponibles == 0 %}
+                                            disabled style="opacity:0.5; cursor:not-allowed; background: #95a5a6; border:none;"
+                                        {% endif %}>
+                                        {% if reserva_activa %}
+                                            Ya tienes reserva
+                                        {% elif jornada.raciones_disponibles == 0 %}
+                                            Agotado
+                                        {% else %}
+                                            Reservar Menú
+                                        {% endif %}
                                     </button>
                                 </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align:center; padding: 20px;">
+                                No hay menús publicados para mañana todavía. 📭
                             </td>
                         </tr>
                         {% endfor %}
@@ -62,14 +101,18 @@
         </div>
 
         {% if reserva_activa %}
-        <div class="card card-exito">
+        <div class="card card-exito" style="border-left: 10px solid #27ae60; background-color: #f0fff4;">
             <div class="exito-contenido">
                 <h3>✅ Tienes una reserva activa</h3>
-                <p>Menú del: <strong>{{ reserva_activa.jornada.menu_dia.fecha }}</strong></p>
-                <div class="advertencia-hora">⚠️ Retirar máximo a las 15:00 del día de mañana.</div>
+                <p>Fecha de retiro: <strong>{{ reserva_activa.jornada.menu_dia.fecha }}</strong></p>
+                <div class="advertencia-hora" style="color: #e67e22; font-weight: bold; margin: 10px 0;">
+                    ⚠️ Recuerda que tienes hasta las 15:00 del día correspondiente para retirar, o se registrará una falta.
+                </div>
                 
-                <form action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST">
-                    <button type="submit" class="btn-retirado">ALMUERZO RETIRADO</button>
+                <form id="form-retirar" action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST" onsubmit="return solicitarPasswordRetiro()">
+                    <button type="submit" class="btn-retirado" style="background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                        MARCAR COMO RETIRADO
+                    </button>
                 </form>
             </div>
         </div>
@@ -78,17 +121,17 @@
         <div class="card card-asistencia">
             <div class="asistencia-info">
                 <h3>Mi Estado de Asistencia</h3>
-                <p>Tu compromiso ayuda a reducir el desperdicio.</p>
+                <p>Evita faltar para no ser bloqueado del sistema.</p>
             </div>
             <div class="badge-contenedor">
                 <span class="badge-label">Faltas Acumuladas</span>
-                <span class="badge-numero" style="color: {% if faltas == 0 %}#27ae60{% else %}#e74c3c{% endif %};">
+                <span class="badge-numero" style="color: {% if faltas == 0 %}#27ae60{% else %}#e74c3c{% endif %}; font-size: 2.5rem; font-weight: bold; display: block;">
                     {{ faltas }}
                 </span>
                 <p class="badge-mensaje">
-                    {% if faltas == 0 %} ¡Excelente! Sigue así. 🌟
-                    {% elif faltas < 3 %} Vas bien, ¡no faltes!
-                    {% else %} Atención: Varias faltas acumuladas.
+                    {% if faltas == 0 %} ¡Excelente asistencia! 🌟
+                    {% elif faltas < 3 %} Cuidado &#128065;, ¡no faltes!
+                    {% else %} Atención: Límite de faltas alcanzado.
                     {% endif %}
                 </p>
             </div>
@@ -96,8 +139,28 @@
     </main>
 
     <script>
-        function confirmarReserva(plato) {
-            return confirm(`¿Estás seguro de que quieres ${plato}? \nRecuerda que al reservar no hay cambios.`);
+        function confirmarReserva() {
+            return confirm("¿Estás seguro de realizar esta reserva para mañana? Una vez aceptado ya no hay cambios");
+        }
+
+        function solicitarPasswordRetiro() {
+            // Pedimos la contraseña al usuario
+            const password = prompt("Por favor, ingresa tu contraseña para confirmar el retiro del almuerzo:");
+            
+            // Si cancela o deja vacío, no se envía el formulario
+            if (password === null || password === "") {
+                return false; 
+            }
+
+            // Creamos un campo oculto en el formulario para enviar la contraseña al servidor
+            const form = document.getElementById("form-retirar");
+            const hiddenInput = document.createElement("input");
+            hiddenInput.type = "hidden";
+            hiddenInput.name = "password_confirmacion";
+            hiddenInput.value = password;
+            
+            form.appendChild(hiddenInput);
+            return true;
         }
     </script>
 </body>
