@@ -4,8 +4,6 @@ from sqlalchemy import UniqueConstraint, or_
 from datetime import datetime, date, timedelta 
 from functools import wraps
 from flask_migrate import Migrate
-import pandas as pd
-import os
 
 app = Flask(__name__)
 app.secret_key = 'kitchenmetrics_2026_key'
@@ -17,7 +15,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# --- MODELOS DE BASE DE DATOS (Se mantienen igual) ---
+# --- MODELOS DE BASE DE DATOS ---
+
 class Rol(db.Model):
     __tablename__ = "rol"
     id_rol = db.Column(db.Integer, primary_key=True)
@@ -107,7 +106,6 @@ class JornadaCocina(db.Model):
     raciones_disponibles = db.Column(db.Integer, nullable=False)
     menu_dia = db.relationship("MenuDia", back_populates="jornadas")
     reservas = db.relationship("Reserva", back_populates="jornada")
-    consumos = db.relationship("Consumo", back_populates="jornada")
     mermas_preparadas = db.relationship("MermaPreparada", back_populates="jornada")
 
 class Reserva(db.Model):
@@ -120,17 +118,6 @@ class Reserva(db.Model):
     estado = db.Column(db.String(20), nullable=False, default="confirmada")
     usuario = db.relationship("Usuario", back_populates="reservas")
     jornada = db.relationship("JornadaCocina", back_populates="reservas")
-    consumo = db.relationship("Consumo", back_populates="reserva", uselist=False)
-
-class Consumo(db.Model):
-    __tablename__ = "consumo"
-    id_consumo = db.Column(db.Integer, primary_key=True)
-    id_reserva = db.Column(db.Integer, db.ForeignKey("reserva.id_reserva"), nullable=False, unique=True)
-    id_jornada = db.Column(db.Integer, db.ForeignKey("jornada_cocina.id_jornada"), nullable=False)
-    fecha_consumo = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    estado = db.Column(db.String(20), nullable=False, default="registrado")
-    reserva = db.relationship("Reserva", back_populates="consumo")
-    jornada = db.relationship("JornadaCocina", back_populates="consumos")
 
 class MermaIngrediente(db.Model):
     __tablename__ = "merma_ingrediente"
@@ -158,10 +145,10 @@ def login_required(role=None):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
-                flash("Sesión expirada. Por favor inicie sesión.", "danger")
+                flash("Sesión expirada.", "danger")
                 return redirect(url_for('index'))
             if role and session.get('user_rol').lower() != role.lower():
-                flash(f"Acceso denegado: Se requiere rol de {role}", "danger")
+                flash("Acceso denegado.", "danger")
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
         return decorated_function
@@ -183,7 +170,7 @@ def login():
         session['user_nombre'] = user.nombre
         destinos = {'admin': 'panel_admin', 'cocina': 'panel_cocina', 'funcionario': 'panel_funcionario'}
         return redirect(url_for(destinos.get(session['user_rol'], 'index')))
-    flash("Correo o contraseña incorrectos.", "danger")
+    flash("Credenciales incorrectas.", "danger")
     return redirect(url_for('index'))
 
 @app.route('/logout')
@@ -197,19 +184,12 @@ def panel_funcionario():
     user = Usuario.query.get(session['user_id'])
     ahora = datetime.now()
     hoy = date.today()
-    
-    # --- LÓGICA AUTOMÁTICA DE FALTAS (15:00 HRS) ---
-    # Creamos el objeto datetime para las 15:00 de hoy
     limite_hoy = datetime.combine(hoy, datetime.strptime("15:00", "%H:%M").time())
     
-    # Buscamos reservas 'confirmadas' que ya pasaron de fecha O que son de hoy y ya son más de las 15:00
     reservas_vencidas = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
         Reserva.id_usuario == user.id_usuario,
         Reserva.estado == 'confirmada',
-        or_(
-            MenuDia.fecha < hoy,
-            (MenuDia.fecha == hoy) & (ahora > limite_hoy)
-        )
+        or_(MenuDia.fecha < hoy, (MenuDia.fecha == hoy) & (ahora > limite_hoy))
     ).all()
 
     if reservas_vencidas:
@@ -217,41 +197,34 @@ def panel_funcionario():
             res.estado = 'no_retirada'
             user.faltas_acumuladas += 1
         db.session.commit()
-        flash(f"Se registraron {len(reservas_vencidas)} falta(s) por no retirar tu almuerzo a tiempo.", "warning")
-
-    # --- BUSCAR MENÚ DE MAÑANA ---
+    
     manana = hoy + timedelta(days=1)
     jornadas = db.session.query(JornadaCocina).join(MenuDia).filter(
-        MenuDia.estado == 'activo',
-        MenuDia.fecha == manana
+        MenuDia.estado == 'activo', MenuDia.fecha == manana
     ).all()
-    
     reserva_activa = Reserva.query.filter_by(id_usuario=user.id_usuario, estado='confirmada').first()
-    
-    return render_template('funcionario.html', 
-                           nombre=session['user_nombre'], 
-                           jornadas=jornadas, 
-                           faltas=user.faltas_acumuladas,
-                           reserva_activa=reserva_activa)
+    return render_template('funcionario.html', nombre=session['user_nombre'], jornadas=jornadas, faltas=user.faltas_acumuladas, reserva_activa=reserva_activa)
 
 @app.route('/reservar/<int:id_jornada>', methods=['POST'])
 @login_required(role='funcionario')
 def reservar(id_jornada):
     jornada = db.session.get(JornadaCocina, id_jornada)
     if not jornada or jornada.raciones_disponibles <= 0:
-        flash("No hay raciones disponibles.", "warning")
+        flash("Sin cupos disponibles para este menú.", "warning")
         return redirect(url_for('panel_funcionario'))
     
-    existente = Reserva.query.filter_by(id_usuario=session['user_id'], estado='confirmada').first()
-    if existente:
-        flash("Ya tienes una reserva activa.", "warning")
-        return redirect(url_for('panel_funcionario'))
+    # Usamos un bloque TRY para capturar el error de duplicidad
+    try:
+        nueva_reserva = Reserva(id_usuario=session['user_id'], id_jornada=id_jornada)
+        jornada.raciones_disponibles -= 1
+        db.session.add(nueva_reserva)
+        db.session.commit()
+        flash("¡Reserva exitosa!", "success")
+    except Exception as e:
+        # Si la reserva ya existe, la base de datos lanza un error y entramos aquí
+        db.session.rollback() # Limpiamos el error de la sesión
+        flash("Ya reservaste y retiraste el menú de hoy", "danger")
         
-    nueva_reserva = Reserva(id_usuario=session['user_id'], id_jornada=id_jornada)
-    jornada.raciones_disponibles -= 1
-    db.session.add(nueva_reserva)
-    db.session.commit()
-    flash("Reserva realizada con éxito para mañana.", "success")
     return redirect(url_for('panel_funcionario'))
 
 @app.route('/retirar/<int:id_reserva>', methods=['POST'])
@@ -259,32 +232,64 @@ def reservar(id_jornada):
 def retirar(id_reserva):
     reserva = db.session.get(Reserva, id_reserva)
     user = Usuario.query.get(session['user_id'])
-    
-    # Obtenemos la contraseña que el usuario escribió en el prompt del navegador
     pass_confirm = request.form.get('password_confirmacion')
-
-    # VALIDACIÓN: La contraseña debe ser igual a la del usuario logueado
     if reserva and user.contrasena == pass_confirm:
         reserva.estado = 'consumida'
         db.session.commit()
-        flash("Almuerzo retirado correctamente. ¡Buen provecho!", "success")
+        flash("Retiro confirmado.", "success")
     else:
-        flash("Contraseña incorrecta. No se pudo confirmar el retiro.", "danger")
-        
+        flash("Clave incorrecta.", "danger")
     return redirect(url_for('panel_funcionario'))
-
-@app.route('/admin')
-@login_required(role='admin')
-def panel_admin():
-    menus = MenuDia.query.all()
-    usuarios = Usuario.query.all()
-    return render_template('admin.html', nombre=session['user_nombre'], menus=menus, usuarios=usuarios)
 
 @app.route('/cocina')
 @login_required(role='cocina')
 def panel_cocina():
-    reservas = Reserva.query.all()
-    return render_template('cocina.html', nombre=session['user_nombre'], reservas=reservas)
+    # Detectamos qué día quiere ver el Chef
+    modo = request.args.get('modo', 'hoy')
+    
+    if modo == 'manana':
+        fecha_consulta = date.today() + timedelta(days=1)
+        titulo_panel = "Planificación de Producción - MAÑANA"
+    else:
+        fecha_consulta = date.today()
+        titulo_panel = "Panel de Control de Entregas - HOY"
+    
+    # Buscamos las reservas para la fecha seleccionada
+    reservas_lista = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
+        MenuDia.fecha == fecha_consulta
+    ).all()
+
+    resumen_platos = {}
+    calculo_ingredientes = {}
+    indices_fondo = {0: 1, 1: 4, 2: 7}
+
+    for r in reservas_lista:
+        # Para la producción sumamos todo lo que no sea una falta confirmada
+        if r.estado != 'no_retirada':
+            n_bandeja = r.id_jornada % 3
+            idx = indices_fondo.get(n_bandeja, 1)
+            
+            if len(r.jornada.menu_dia.detalles) > idx:
+                nombre_fondo = r.jornada.menu_dia.detalles[idx].plato.nombre
+                resumen_platos[nombre_fondo] = resumen_platos.get(nombre_fondo, 0) + 1
+                
+                # Calculadora de Insumos
+                for detalle in r.jornada.menu_dia.detalles:
+                    for item in detalle.plato.recetas:
+                        ing = item.ingrediente
+                        if ing.nombre not in calculo_ingredientes:
+                            calculo_ingredientes[ing.nombre] = {'cantidad': 0, 'unidad': ing.unidad_medida}
+                        calculo_ingredientes[ing.nombre]['cantidad'] += float(item.cantidad_por_porcion)
+
+    return render_template('cocina.html', 
+                           nombre=session['user_nombre'], 
+                           reservas=reservas_lista, 
+                           resumen=resumen_platos, 
+                           ingredientes=calculo_ingredientes, 
+                           fecha_ver=fecha_consulta,
+                           titulo=titulo_panel,
+                           modo=modo, # Pasamos el modo para el CSS y títulos
+                           datetime=datetime)
 
 if __name__ == '__main__':
     with app.app_context():
