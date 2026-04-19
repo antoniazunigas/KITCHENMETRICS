@@ -1,0 +1,221 @@
+{% set total_reservas = reservas_recientes|length %}
+{% set reservas_visibles = reservas_recientes[:10] %}
+
+<div class="d-flex flex-column gap-3">
+
+  <!-- Encabezado -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <div>
+        <h4 class="mb-1 fw-bold">Gestión de Reservas</h4>
+        <div class="text-muted small">
+          Administra y revisa las reservas de usuarios por RUT, fecha y estado.
+        </div>
+      </div>
+
+      <a href="#" class="btn btn-success btn-sm">
+        Exportar Excel
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
+      <div class="d-flex flex-column flex-md-row gap-3 flex-grow-1">
+        <div class="flex-grow-1">
+          <label class="form-label mb-1 text-muted small">Buscar por RUT</label>
+          <input type="text" id="rutSearch" class="form-control form-control-sm" placeholder="Ej: 184562346">
+        </div>
+
+        <div class="d-flex align-items-end">
+          <button id="clearRutSearch" class="btn btn-outline-secondary btn-sm">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <div class="text-muted small">
+        Mostrando <strong>{{ reservas_visibles|length }}</strong> de <strong>{{ total_reservas }}</strong> reservas
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card p-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h5 class="mb-1">Lista de usuarios con reservas</h5>
+        <div class="text-muted small">Se muestran primero 10 reservas y puedes expandir el listado.</div>
+      </div>
+
+      <button id="toggleMoreBtn" class="btn btn-outline-success btn-sm" {% if total_reservas <= 10 %}style="display:none;"{% endif %}>
+        Mostrar más
+      </button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle table-hover">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>RUT</th>
+            <th>Fecha</th>
+            <th>Jornada</th>
+            <th>Acciones</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+
+        <tbody id="reservasTableBody">
+          {% for r in reservas_recientes %}
+          <tr class="reserva-row {% if loop.index > 10 %}d-none{% endif %}"
+              data-rut="{{ r.usuario.rut if r.usuario else '' }}"
+              data-nombre="{{ (r.usuario.nombre ~ ' ' ~ r.usuario.apellido) if r.usuario else '' }}">
+
+            <td>
+              <div class="fw-semibold">
+                {{ r.usuario.nombre ~ ' ' ~ r.usuario.apellido if r.usuario else 'N/A' }}
+              </div>
+              <div class="small text-muted">
+                {{ r.usuario.email if r.usuario else '' }}
+              </div>
+            </td>
+
+            <td><span class="badge-km">{{ r.usuario.rut if r.usuario else 'N/A' }}</span></td>
+
+            <td>{{ r.fecha_reserva.strftime('%d-%m-%Y %H:%M') if r.fecha_reserva else '' }}</td>
+
+            <td>
+              {{ r.jornada.menu_dia.fecha.strftime('%d-%m-%Y') if r.jornada and r.jornada.menu_dia else 'Sin fecha' }}
+              <div class="small text-muted">Jornada #{{ r.jornada.id_jornada if r.jornada else 'N/A' }}</div>
+            </td>
+
+            <!-- ACCIONES -->
+            <td>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-success action-btn"
+                        data-id="{{ r.id_reserva }}"
+                        data-action="confirmar"
+                        {% if r.estado == 'confirmada' %}disabled{% endif %}>
+                  ✔
+                </button>
+
+                <button class="btn btn-sm btn-danger action-btn"
+                        data-id="{{ r.id_reserva }}"
+                        data-action="cancelar"
+                        {% if r.estado == 'cancelada' %}disabled{% endif %}>
+                  ✖
+                </button>
+              </div>
+            </td>
+
+            <!-- ESTADO -->
+            <td>
+              <span id="estado-{{ r.id_reserva }}">
+                {% if r.estado == 'confirmada' %}
+                  <span class="badge rounded-pill bg-primary-subtle text-primary px-3 py-2">Confirmada</span>
+                {% elif r.estado == 'consumida' %}
+                  <span class="badge rounded-pill bg-success-subtle text-success px-3 py-2">Consumida</span>
+                {% elif r.estado == 'no consumida' %}
+                  <span class="badge rounded-pill bg-warning-subtle text-warning px-3 py-2">No consumida</span>
+                {% elif r.estado == 'cancelada' %}
+                  <span class="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">Cancelada</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">{{ r.estado }}</span>
+                {% endif %}
+              </span>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="text-center mt-2 small text-muted">
+      Mostrando <strong id="shownCount">{{ reservas_visibles|length }}</strong> de <strong id="totalCount">{{ total_reservas }}</strong>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+
+  const searchInput = document.getElementById('rutSearch');
+  const clearBtn = document.getElementById('clearRutSearch');
+  const toggleBtn = document.getElementById('toggleMoreBtn');
+  const rows = Array.from(document.querySelectorAll('.reserva-row'));
+
+  let expanded = false;
+
+  function applyFilter() {
+    const term = (searchInput.value || '').toLowerCase();
+    let shown = 0;
+
+    rows.forEach((row, index) => {
+      const rut = row.dataset.rut.toLowerCase();
+      const matches = !term || rut.includes(term);
+      const visible = matches && (expanded || index < 10);
+
+      row.classList.toggle('d-none', !visible);
+      if (visible) shown++;
+    });
+
+    document.getElementById('shownCount').textContent = shown;
+  }
+
+  searchInput.addEventListener('input', applyFilter);
+
+  clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    expanded = false;
+    toggleBtn.textContent = 'Mostrar más';
+    applyFilter();
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    expanded = !expanded;
+    toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
+    applyFilter();
+  });
+
+  // 🔥 ACCIONES (CONFIRMAR / CANCELAR)
+  document.querySelectorAll(".action-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+
+      const id = btn.dataset.id;
+      const accion = btn.dataset.action;
+
+      const res = await fetch("/admin/reserva/update_estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_reserva: id, accion: accion })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        actualizarEstado(id, data.nuevo_estado);
+      }
+    });
+  });
+
+  function actualizarEstado(id, estado) {
+    const el = document.getElementById(`estado-${id}`);
+
+    if (estado === "confirmada") {
+      el.innerHTML = `<span class="badge rounded-pill bg-primary-subtle text-primary px-3 py-2">Confirmada</span>`;
+    } else if (estado === "cancelada") {
+      el.innerHTML = `<span class="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">Cancelada</span>`;
+    }
+
+    const row = el.closest("tr");
+    row.querySelector('[data-action="confirmar"]').disabled = estado === "confirmada";
+    row.querySelector('[data-action="cancelar"]').disabled = estado === "cancelada";
+  }
+
+  applyFilter();
+
+})();
+</script>

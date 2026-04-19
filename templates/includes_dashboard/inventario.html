@@ -1,0 +1,222 @@
+{% set total_ingredientes = ingredientes|length %}
+
+<div class="d-flex flex-column gap-3">
+
+  <!-- Encabezado -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <div>
+        <h4 class="mb-1 fw-bold">Inventario</h4>
+        <div class="text-muted small">
+          Seguimiento de ingredientes y lotes disponibles.
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <a href="#" class="btn btn-success btn-sm">
+          Exportar Excel
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI básicos -->
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card p-3 kpi-card">
+        <div class="kpi-title">Ingredientes registrados</div>
+        <div class="kpi-value">{{ total_ingredientes }}</div>
+        <div class="small text-muted">Listado consolidado actual</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card p-3 kpi-card">
+        <div class="kpi-title">Total de lotes</div>
+        <div class="kpi-value">{{ total_lotes|default(0) }}</div>
+        <div class="small text-muted">Sumados desde todos los ingredientes</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card p-3 kpi-card">
+        <div class="kpi-title">Lotes en alerta</div>
+        <div class="kpi-value">{{ lotes_bajos|default(0) }}</div>
+        <div class="small text-muted">Cantidad disponible ≤ 10</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alertas de vencimiento -->
+  <div class="card p-3 alert-days-card">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span class="text-warning fw-bold">⚠️</span>
+      <h5 class="mb-0 text-warning">Lotes próximos a vencer</h5>
+    </div>
+
+    <div class="d-flex gap-3 flex-wrap">
+      {% for lote in lotes_proximos %}
+      <div class="card p-3 risk-card">
+        <div class="fw-semibold">{{ lote.ingrediente.nombre if lote.ingrediente else 'Ingrediente' }}</div>
+        <div class="small text-muted">
+          Lote #{{ lote.id_lote }} · {{ lote.cantidad_disponible }} {{ lote.ingrediente.unidad_medida if lote.ingrediente else '' }}
+        </div>
+        <div class="small text-muted">
+          Vence: {{ lote.fecha_vencimiento.strftime('%d-%m-%Y') if lote.fecha_vencimiento else '' }}
+        </div>
+        <div class="small text-warning fw-semibold mt-1">
+          ⚠ {{ lote.dias_restantes }} días restantes
+        </div>
+      </div>
+      {% else %}
+      <div class="text-muted">No hay lotes próximos a vencer.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center">
+      <input
+        type="text"
+        id="inventarioSearch"
+        class="form-control form-control-sm"
+        placeholder="Buscar ingrediente..."
+      >
+      <button id="clearInventarioSearch" class="btn btn-outline-secondary btn-sm">
+        Limpiar
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card p-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h5 class="mb-1">Inventario (Ingredientes)</h5>
+        <div class="text-muted small">
+          Se muestran 10 filas por defecto y puedes expandir el listado.
+        </div>
+      </div>
+
+      <button
+        id="toggleInventarioBtn"
+        class="btn btn-outline-success btn-sm"
+        {% if total_ingredientes <= 10 %}style="display:none;"{% endif %}
+      >
+        Mostrar más
+      </button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle table-hover">
+        <thead>
+          <tr>
+            <th>Ingrediente</th>
+            <th>Unidad</th>
+            <th>Lotes</th>
+          </tr>
+        </thead>
+
+        <tbody id="inventarioTableBody">
+          {% for ing in ingredientes %}
+          <tr
+            class="ingrediente-row {% if loop.index > 10 %}d-none{% endif %}"
+            data-nombre="{{ ing.nombre|lower }}"
+            data-unidad="{{ ing.unidad_medida|lower }}"
+          >
+            <td>
+              <div class="fw-semibold">{{ ing.nombre }}</div>
+            </td>
+
+            <td>
+              <span class="badge-km">{{ ing.unidad_medida }}</span>
+            </td>
+
+            <td>
+              {% for lote in ing.lotes[:3] %}
+                <div class="small">
+                  Lote {{ lote.id_lote }}: {{ lote.cantidad_disponible }} {{ ing.unidad_medida }}
+                  {% if lote.fecha_vencimiento %}
+                    · vence {{ lote.fecha_vencimiento.strftime('%d-%m-%Y') }}
+                  {% endif %}
+                </div>
+              {% else %}
+                <div class="small text-muted">Sin lotes</div>
+              {% endfor %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="3" class="text-center text-muted py-4">
+              No hay ingredientes.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex flex-column align-items-center gap-2 mt-3">
+      <div class="text-muted small">
+        Mostrando <strong id="shownInventarioCount">{{ ingredientes[:10]|length }}</strong> de <strong id="totalInventarioCount">{{ total_ingredientes }}</strong> ingredientes
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const searchInput = document.getElementById('inventarioSearch');
+  const clearBtn = document.getElementById('clearInventarioSearch');
+  const toggleBtn = document.getElementById('toggleInventarioBtn');
+  const rows = Array.from(document.querySelectorAll('.ingrediente-row'));
+  const shownCountEl = document.getElementById('shownInventarioCount');
+  const totalCountEl = document.getElementById('totalInventarioCount');
+
+  let expanded = false;
+
+  function applyFilter() {
+    const term = (searchInput.value || '').trim().toLowerCase();
+    let shown = 0;
+
+    rows.forEach((row, index) => {
+      const nombre = row.dataset.nombre || '';
+      const unidad = row.dataset.unidad || '';
+      const matchesSearch = !term || nombre.includes(term) || unidad.includes(term);
+      const matchesExpand = expanded || index < 10;
+
+      const visible = matchesSearch && matchesExpand;
+      row.classList.toggle('d-none', !visible);
+
+      if (visible) shown++;
+    });
+
+    shownCountEl.textContent = shown;
+    totalCountEl.textContent = rows.length;
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFilter);
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      searchInput.value = '';
+      expanded = false;
+      if (toggleBtn) toggleBtn.textContent = 'Mostrar más';
+      applyFilter();
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      expanded = !expanded;
+      toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
+      applyFilter();
+    });
+  }
+
+  applyFilter();
+})();
+</script>

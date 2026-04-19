@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard Ejecutivo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_dashboard.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-app">
+        <aside class="sidebar">
+            <div class="brand">KitchenMetrics</div>
+            <ul class="nav-list">
+                <li class="nav-item active" data-target="principal">
+                    <a href="#">
+                        <span class="nav-icon">🏠</span>
+                        <span class="nav-text">Principal</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-target="reservas">
+                    <a href="#">
+                        <span class="nav-icon">📅</span>
+                        <span class="nav-text">Reservas</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-target="inventario">
+                    <a href="#">
+                        <span class="nav-icon">📦</span>
+                        <span class="nav-text">Inventario</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-target="mermas">
+                    <a href="#">
+                        <span class="nav-icon">⚠️</span>
+                        <span class="nav-text">Mermas</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-target="usuarios">
+                    <a href="#">
+                        <span class="nav-icon">👥</span>
+                        <span class="nav-text">Usuarios</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="user-small">{{ nombre }}</div>
+                <a href="{{ url_for('logout') }}" class="small-link">Cerrar sesión</a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <h2>Dashboard Ejecutivo</h2>
+                <div class="top-actions">
+                    <a href="#" class="btn btn-success">Exportar Excel</a>
+                </div>
+            </header>
+
+            <div class="container-fluid p-3">
+                <section id="content-principal" class="content-pane">
+                    {% include 'includes_dashboard/principal.html' %}
+                </section>
+                <section id="content-reservas" class="content-pane d-none">
+                    {% include 'includes_dashboard/reservas.html' %}
+                </section>
+                <section id="content-inventario" class="content-pane d-none">
+                    {% include 'includes_dashboard/inventario.html' %}
+                </section>
+                <section id="content-mermas" class="content-pane d-none">
+                    {% include 'includes_dashboard/mermas.html' %}
+                </section>
+                <section id="content-usuarios" class="content-pane d-none">
+                    {% include 'includes_dashboard/usuarios.html' %}
+                </section>
+            </div>
+        </main>
+    </div>
+
+    {# Datos serializados para JS, sin romper el editor ni el HTML #}
+    <script id="chart-consumidas-data" type="application/json">
+    {{ chart_consumidas|tojson }}
+  </script>
+    <script id="chart-merma-data" type="application/json">
+    {{ chart_merma|tojson }}
+  </script>
+    <script id="chart-platos-data" type="application/json">
+    {{ chart_platos|tojson }}
+  </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+
+</html>
