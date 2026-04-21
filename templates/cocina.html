@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KitchenMetrics - Cocina</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
+</head>
+<body class="cocina-body">
+
+    <header class="cocina-header">
+        <div class="logo-area">
+            <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo">
+            <h2 style="margin:0; font-size: 1.2rem;">{{ titulo }}</h2>
+        </div>
+        
+        <div class="view-selector">
+            <a href="/cocina?modo=hoy" class="btn-toggle {{ 'active' if modo == 'hoy' else '' }}">HOY</a>
+            <a href="/cocina?modo=manana" class="btn-toggle {{ 'active' if modo == 'manana' else '' }}">MAÑANA</a>
+        </div>
+
+        <div class="user-area">
+            <span>👨‍🍳 {{ nombre }}</span>
+            <a href="/logout" class="btn-logout">Cerrar Sesión</a>
+        </div>
+    </header>
+
+    <main class="cocina-container">
+        <div class="dashboard-grid">
+            <section class="card">
+                <h3>🍲 Preparación para {{ 'Hoy' if modo == 'hoy' else 'Mañana' }}</h3>
+                <div class="platos-lista">
+                    {% for plato, cant in resumen.items() %}
+                    <div class="plato-item">
+                        <span>{{ plato }}</span>
+                        <span class="plato-cant">{{ cant }} raciones</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="card">
+                <h3>⚖️ Insumos Totales</h3>
+                <div class="insumos-grid">
+                    {% for ing, datos in ingredientes.items() %}
+                    <div class="insumo-tag">
+                        <strong>{{ ing }}:</strong> {{ "%.2f"|format(datos.cantidad) }} {{ datos.unidad }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <section class="card">
+            <h3>📋 Lista de Reservas ({{ fecha_ver }})</h3>
+            <table class="tabla-cocina">
+                <thead>
+                    <tr>
+                        <th>Funcionario</th>
+                        <th>Bandeja</th>
+                        <th class="text-center">Estado de Retiro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reservas %}
+                    <tr>
+                        <td>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</td>
+                        <td>
+                            {% set n_bandeja = r.id_jornada % 3 %}
+                            {% set indices = {0: 1, 1: 4, 2: 7} %}
+                            {{ r.jornada.menu_dia.detalles[indices[n_bandeja]].plato.nombre }}
+                        </td>
+                        <td class="text-center">
+                            {% if modo == 'manana' %}
+                                <span class="status-badge confirmada">🕒 PENDIENTE (MAÑANA)</span>
+                            {% else %}
+                                {% set ahora = datetime.now() %}
+                                {% set limite = datetime.combine(r.jornada.menu_dia.fecha, datetime.strptime("15:00", "%H:%M").time()) %}
+                                
+                                {% if r.estado == 'consumida' %}
+                                    <span class="status-badge consumida">✅ RETIRADA</span>
+                                {% elif ahora > limite and r.estado == 'confirmada' %}
+                                    <span class="status-badge no_retirada">🚫 INCUMPLIMIENTO</span>
+                                {% else %}
+                                    <span class="status-badge confirmada">🕒 PENDIENTE</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</body>
+</html>

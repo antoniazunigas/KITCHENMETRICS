@@ -1,0 +1,218 @@
+/* ======================================= */
+/* ESTILOS DEL PANEL INTERNO (DASHBOARD)   */
+/* ======================================= */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    padding-top: 130px; 
+    background-color: #f4f7f9;
+}
+
+header {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    background: #d2fc9f; 
+    padding: 15px 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+    z-index: 1000;
+    box-sizing: border-box;
+    border-bottom: 4px solid #27ae60; 
+}
+
+.header-logo {
+    height: 75px;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.1));
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+.user-name {
+    color: #2c3e50; 
+    font-weight: 700;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 8px 15px;
+    border-radius: 20px;
+}
+
+.logout-btn {
+    background: #e74c3c;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: bold;
+    text-decoration: none;
+    transition: 0.3s;
+}
+
+.logout-btn:hover {
+    background: #c0392b;
+    transform: translateY(-2px);
+}
+
+.container {
+    width: 92%;
+    max-width: 1300px;
+    margin: 0 auto 50px auto;
+}
+
+.card {
+    background: #ffffff;
+    padding: 35px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+    border: 1px solid #e1e8ed;
+    margin-bottom: 30px;
+}
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px; 
+}
+
+table th {
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 10px 20px;
+    text-align: left;
+}
+
+table td {
+    background: #ffffff;
+    padding: 20px;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+}
+
+table tr:hover td { background-color: #f8fafc; }
+
+.btn-action {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* RESPONSIVE CELULARES */
+@media (max-width: 768px) {
+    header { padding: 10px 15px; flex-direction: column; gap: 10px; }
+    .header-logo { height: 55px; }
+    .user-info { width: 100%; justify-content: space-between; }
+    body { padding-top: 160px; }
+    .card { overflow-x: auto; }
+    table { min-width: 500px; }
+}
+
+/* --- ESTILOS PARA LA TARJETA DE ASISTENCIA --- */
+.card-asistencia {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 8px solid #3498db;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.asistencia-info h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.asistencia-info p {
+    margin: 5px 0 0 0;
+    color: #7f8c8d;
+}
+
+.badge-contenedor {
+    text-align: center;
+    background: #f8fafc;
+    padding: 15px 30px;
+    border-radius: 15px;
+    border: 1px solid #e2e8f0;
+    min-width: 250px;
+}
+
+.badge-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.badge-numero {
+    font-size: 2.8rem;
+    font-weight: 800;
+}
+
+.badge-mensaje {
+    margin: 10px 0 0 0;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+
+.text-muted { color: #64748b; font-size: 1.1rem; }
+.table-responsive { overflow-x: auto; width: 100%; }
+.tag-dieta { background: #e2e8f0; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; }
+.text-center { text-align: center; }
+
+/* --- ESTILOS PARA LA RESERVA EXITOSA --- */
+.card-exito {
+    border-left: 8px solid #27ae60; /* Verde para éxito */
+    background-color: #f0fdf4; /* Verde muy clarito */
+    animation: slideIn 0.5s ease-out;
+}
+
+.exito-contenido h3 {
+    color: #1e8449;
+    margin-top: 0;
+}
+
+.advertencia-hora {
+    background: #fff3cd;
+    color: #856404;
+    padding: 10px;
+    border-radius: 8px;
+    display: inline-block;
+    font-weight: 600;
+    margin: 15px 0;
+}
+
+.btn-retirado {
+    background: #34495e;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    display: block;
+}
+
+.btn-retirado:hover {
+    background: #2c3e50;
+    transform: scale(1.02);
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

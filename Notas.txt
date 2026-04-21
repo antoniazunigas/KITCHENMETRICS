@@ -1,0 +1,11 @@
+-----------------------COMANDOS:
+flask db init
+flask db migrate -m "Descripción del cambio"
+flask db upgrade
+
+extremo:
+DROP DATABASE kitchenmetrics_db;
+CREATE DATABASE kitchenmetrics_db;
+
+-----------------------POBLADO BD:
+python database_run.py

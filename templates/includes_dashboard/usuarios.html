@@ -1,0 +1,493 @@
+{% set usuarios_list = usuarios_list|default([]) %}
+{% set roles_list = roles_list|default([]) %}
+{% set usuarios_atencion = usuarios_atencion|default([]) %}
+{% set total = usuarios_list|length %}
+
+<div class="d-flex flex-column gap-3">
+
+  <!-- Encabezado -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <div>
+        <h4 class="mb-1 fw-bold">Usuarios</h4>
+        <div class="text-muted small">
+          Administración de usuarios, roles y estados.
+        </div>
+      </div>
+
+      <button class="btn btn-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#createUserPanel">
+        Crear usuario
+      </button>
+    </div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center">
+      <input
+        type="text"
+        id="usuariosSearch"
+        class="form-control form-control-sm"
+        placeholder="Buscar por nombre, RUT o email..."
+      >
+      <button id="clearUsuariosSearch" class="btn btn-outline-secondary btn-sm" type="button">
+        Limpiar
+      </button>
+    </div>
+  </div>
+
+  <!-- Formulario colapsable -->
+  <div class="collapse" id="createUserPanel">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="mb-1">Crear usuario</h5>
+          <div class="text-muted small">Formulario horizontal, colapsado por defecto.</div>
+        </div>
+      </div>
+
+      <form method="POST" action="{{ url_for('admin_usuario_crear') }}">
+        <div class="row g-3">
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">Rol</label>
+            <select name="id_rol" class="form-select form-select-sm" required>
+              <option value="" selected disabled>Seleccionar</option>
+              {% for rol in roles_list %}
+              <option value="{{ rol.id_rol }}">{{ rol.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">RUT</label>
+            <input type="text" name="rut" class="form-control form-control-sm" required>
+          </div>
+
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">Nombre</label>
+            <input type="text" name="nombre" class="form-control form-control-sm" required>
+          </div>
+
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">Apellido</label>
+            <input type="text" name="apellido" class="form-control form-control-sm" required>
+          </div>
+
+          <div class="col-md-4 col-lg-2">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control form-control-sm" required>
+          </div>
+
+          <div class="col-md-4 col-lg-2">
+            <label class="form-label">Contraseña</label>
+            <input type="text" name="contrasena" class="form-control form-control-sm" required>
+          </div>
+
+          <div class="col-md-2 col-lg-2">
+            <label class="form-label">Faltas</label>
+            <input type="number" name="faltas_acumuladas" class="form-control form-control-sm" min="0" value="0">
+          </div>
+
+          <div class="col-md-2 col-lg-2">
+            <label class="form-label">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+              <option value="activo" selected>Activo</option>
+              <option value="bloqueado">Bloqueado</option>
+            </select>
+          </div>
+
+          <div class="col-12 d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#createUserPanel">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-success btn-sm">
+              Guardar usuario
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Panel dinámico -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+      <div>
+        <h5 class="mb-1">Panel dinámico</h5>
+        <div class="text-muted small">Resumen, usuarios en atención y espacio para futuras vistas.</div>
+      </div>
+
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-secondary user-view-btn active" data-view="resumen">Resumen</button>
+        <button type="button" class="btn btn-outline-secondary user-view-btn" data-view="atencion">Atención</button>
+        <button type="button" class="btn btn-outline-secondary user-view-btn" data-view="espacio">Espacio dinámico</button>
+      </div>
+    </div>
+
+    <div id="usersDynamicArea">
+      <div class="row g-3 user-dynamic-section" data-section="resumen">
+        <div class="col-6 col-md-3">
+          <div class="card kpi-card p-3">
+            <div class="kpi-title">Total usuarios</div>
+            <div class="kpi-value">{{ usuarios_list|length }}</div>
+            <div class="small text-muted">Registrados en el sistema</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+          <div class="card kpi-card p-3">
+            <div class="kpi-title">Activos</div>
+            <div class="kpi-value">{{ usuarios_activos|default(0) }}</div>
+            <div class="small text-muted">Estado activo</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+          <div class="card kpi-card p-3">
+            <div class="kpi-title">Bloqueados</div>
+            <div class="kpi-value text-danger">{{ usuarios_bloqueados|default(0) }}</div>
+            <div class="small text-muted">Requieren desbloqueo</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+          <div class="card kpi-card p-3">
+            <div class="kpi-title">En atención</div>
+            <div class="kpi-value text-warning">{{ usuarios_atencion|length }}</div>
+            <div class="small text-muted">≥ 2 faltas o bloqueados</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="user-dynamic-section d-none" data-section="atencion">
+        <div class="card p-3 bg-orange-50 border border-warning-subtle">
+          <h6 class="mb-3 text-warning fw-bold">Usuarios que requieren atención</h6>
+          <div class="row g-3">
+            {% for u in usuarios_atencion %}
+            <div class="col-12 col-md-6 col-lg-4">
+              <div class="card p-3 risk-card h-100">
+                <div class="fw-semibold">{{ u.nombre }} {{ u.apellido }}</div>
+                <div class="small text-muted">RUT: {{ u.rut }}</div>
+                <div class="small text-muted">Email: {{ u.email }}</div>
+                <div class="small text-muted">Faltas: {{ u.faltas_acumuladas }}</div>
+                <div class="small mt-2">
+                  {% if u.estado == 'bloqueado' %}
+                    <span class="badge bg-danger-subtle text-danger">Bloqueado</span>
+                  {% else %}
+                    <span class="badge bg-warning-subtle text-warning">Atención</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+              <div class="text-muted">No hay usuarios en atención.</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="user-dynamic-section d-none" data-section="espacio">
+        <div class="chart-placeholder d-flex align-items-center justify-content-center p-5">
+          <div class="text-center text-muted">
+            <div class="fw-semibold">Espacio dinámico</div>
+            <div class="small">Aquí puedes montar un gráfico, una tabla o un resumen avanzado.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+      <div>
+        <h5 class="mb-1">Lista de usuarios</h5>
+        <div class="text-muted small">Vista en lista, responsive y simple.</div>
+      </div>
+
+      <button
+        id="toggleUsuariosBtn"
+        class="btn btn-outline-success btn-sm"
+        type="button"
+        {% if total <= 10 %}style="display:none;"{% endif %}
+      >
+        Mostrar más
+      </button>
+    </div>
+
+    <div id="usuariosList" class="d-flex flex-column gap-3">
+      {% for u in usuarios_list %}
+      <div
+        class="usuario-row card p-3 shadow-sm {% if loop.index > 10 %}d-none{% endif %}"
+        data-name="{{ (u.nombre ~ ' ' ~ u.apellido)|lower }}"
+        data-rut="{{ u.rut|lower }}"
+        data-email="{{ u.email|lower }}"
+        data-id="{{ u.id_usuario }}"
+      >
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+          <div class="flex-grow-1">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <h6 class="mb-0 fw-bold">{{ u.nombre }} {{ u.apellido }}</h6>
+
+              {% if u.estado == 'activo' %}
+                <span class="badge bg-success">Activo</span>
+              {% else %}
+                <span class="badge bg-danger">Bloqueado</span>
+              {% endif %}
+
+              {% if u.faltas_acumuladas >= 2 %}
+                <span class="badge bg-warning text-dark">Atención</span>
+              {% endif %}
+            </div>
+
+            <div class="text-muted small mb-2">ID: {{ u.id_usuario }}</div>
+
+            <div class="row g-2 small">
+              <div class="col-12 col-md-4">
+                <div class="text-muted">RUT</div>
+                <div><span class="badge-km">{{ u.rut }}</span></div>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <div class="text-muted">Email</div>
+                <div>{{ u.email }}</div>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <div class="text-muted">Rol</div>
+                <div>{{ u.rol.nombre if u.rol else 'N/A' }}</div>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <div class="text-muted">Faltas</div>
+                <div class="{% if u.faltas_acumuladas >= 2 %}text-danger fw-semibold{% else %}text-warning fw-semibold{% endif %}">
+                  {{ u.faltas_acumuladas }}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+
+          <div class="d-flex flex-column gap-2" style="min-width: 180px;">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary edit-user-btn"
+              data-bs-toggle="modal"
+              data-bs-target="#editUserModal"
+              data-id="{{ u.id_usuario }}"
+              data-rol="{{ u.id_rol }}"
+              data-rut="{{ u.rut }}"
+              data-nombre="{{ u.nombre }}"
+              data-apellido="{{ u.apellido }}"
+              data-email="{{ u.email }}"
+              data-faltas="{{ u.faltas_acumuladas }}"
+              data-estado="{{ u.estado }}"
+            >
+              Editar
+            </button>
+
+            <form method="POST" action="{{ url_for('admin_usuario_desbloquear', id_usuario=u.id_usuario) }}">
+              <button type="submit" class="btn btn-sm btn-outline-warning w-100" {% if u.estado == 'activo' %}disabled{% endif %}>
+                Desbloquear
+              </button>
+            </form>
+
+            <form
+              method="POST"
+              action="{{ url_for('admin_usuario_eliminar', id_usuario=u.id_usuario) }}"
+              onsubmit="return confirm('¿Eliminar este usuario? Esta acción no se puede deshacer.');"
+            >
+              <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                Eliminar
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-4">No hay usuarios</div>
+      {% endfor %}
+    </div>
+
+    <div class="d-flex flex-column align-items-center gap-2 mt-3">
+      <div class="text-muted small text-center">
+        Mostrando <strong id="shownUsersCount">{{ [10, total]|min }}</strong> de
+        <strong id="totalUsersCount">{{ total }}</strong> usuarios
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar usuario -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" id="editUserForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar usuario</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">Rol</label>
+              <select name="id_rol" id="edit_id_rol" class="form-select form-select-sm" required>
+                <option value="" disabled>Seleccionar</option>
+                {% for rol in roles_list %}
+                <option value="{{ rol.id_rol }}">{{ rol.nombre }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">RUT</label>
+              <input type="text" name="rut" id="edit_rut" class="form-control form-control-sm" required>
+            </div>
+
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">Nombre</label>
+              <input type="text" name="nombre" id="edit_nombre" class="form-control form-control-sm" required>
+            </div>
+
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">Apellido</label>
+              <input type="text" name="apellido" id="edit_apellido" class="form-control form-control-sm" required>
+            </div>
+
+            <div class="col-md-4 col-lg-2">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" id="edit_email" class="form-control form-control-sm" required>
+            </div>
+
+            <div class="col-md-4 col-lg-2">
+              <label class="form-label">Nueva contraseña</label>
+              <input type="text" name="contrasena" id="edit_contrasena" class="form-control form-control-sm" placeholder="Dejar en blanco para mantener">
+            </div>
+
+            <div class="col-md-2 col-lg-2">
+              <label class="form-label">Faltas</label>
+              <input type="number" name="faltas_acumuladas" id="edit_faltas" class="form-control form-control-sm" min="0">
+            </div>
+
+            <div class="col-md-2 col-lg-2">
+              <label class="form-label">Estado</label>
+              <select name="estado" id="edit_estado" class="form-select form-select-sm">
+                <option value="activo">Activo</option>
+                <option value="bloqueado">Bloqueado</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const searchInput = document.getElementById('usuariosSearch');
+  const clearBtn = document.getElementById('clearUsuariosSearch');
+  const toggleBtn = document.getElementById('toggleUsuariosBtn');
+  const rows = Array.from(document.querySelectorAll('.usuario-row'));
+  const shownCountEl = document.getElementById('shownUsersCount');
+  const totalCountEl = document.getElementById('totalUsersCount');
+
+  const editForm = document.getElementById('editUserForm');
+  const editRol = document.getElementById('edit_id_rol');
+  const editRut = document.getElementById('edit_rut');
+  const editNombre = document.getElementById('edit_nombre');
+  const editApellido = document.getElementById('edit_apellido');
+  const editEmail = document.getElementById('edit_email');
+  const editContrasena = document.getElementById('edit_contrasena');
+  const editFaltas = document.getElementById('edit_faltas');
+  const editEstado = document.getElementById('edit_estado');
+
+  const dynamicBtns = Array.from(document.querySelectorAll('.user-view-btn'));
+  const dynamicSections = Array.from(document.querySelectorAll('.user-dynamic-section'));
+
+  let expanded = false;
+
+  function applyFilter() {
+    const term = (searchInput.value || '').trim().toLowerCase();
+    let shown = 0;
+
+    rows.forEach((row, index) => {
+      const name = row.dataset.name || '';
+      const rut = row.dataset.rut || '';
+      const email = row.dataset.email || '';
+
+      const matchesSearch = !term || name.includes(term) || rut.includes(term) || email.includes(term);
+      const matchesExpand = expanded || index < 10;
+
+      const visible = matchesSearch && matchesExpand;
+      row.classList.toggle('d-none', !visible);
+
+      if (visible) shown++;
+    });
+
+    shownCountEl.textContent = shown;
+    totalCountEl.textContent = rows.length;
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFilter);
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      searchInput.value = '';
+      expanded = false;
+      if (toggleBtn) toggleBtn.textContent = 'Mostrar más';
+      applyFilter();
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      expanded = !expanded;
+      toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
+      applyFilter();
+    });
+  }
+
+  document.querySelectorAll('.edit-user-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      editForm.action = `/admin/usuario/editar/${id}`;
+      editRol.value = btn.dataset.rol || '';
+      editRut.value = btn.dataset.rut || '';
+      editNombre.value = btn.dataset.nombre || '';
+      editApellido.value = btn.dataset.apellido || '';
+      editEmail.value = btn.dataset.email || '';
+      editContrasena.value = '';
+      editFaltas.value = btn.dataset.faltas || 0;
+      editEstado.value = btn.dataset.estado || 'activo';
+    });
+  });
+
+  function showSection(sectionName) {
+    dynamicSections.forEach((section) => {
+      section.classList.toggle('d-none', section.dataset.section !== sectionName);
+    });
+
+    dynamicBtns.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.view === sectionName);
+    });
+  }
+
+  dynamicBtns.forEach((btn) => {
+    btn.addEventListener('click', () => showSection(btn.dataset.view));
+  });
+
+  showSection('resumen');
+  applyFilter();
+})();
+</script>

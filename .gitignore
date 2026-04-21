@@ -1,0 +1,25 @@
+# Entornos virtuales
+venv/
+.env
+.env.*
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- BASES DE DATOS LOCALES (IMPORTANTE) ---
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Migraciones locales
+migrations/
+alembic.ini
+
+# Archivos temporales / editores
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

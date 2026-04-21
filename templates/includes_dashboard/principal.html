@@ -1,0 +1,236 @@
+{% set antes = antes|default(0)|float %}
+{% set actual = actual|default(percent_desperdicio|default(0))|float %}
+{% set meta = meta|default(15.0)|float %}
+{% set ya_reducido = ya_reducido|default((antes - actual)|round(1)) %}
+{% set progress_percent = progress_percent|default(0)|float %}
+
+<!-- Sección superior: filtros y KPIs -->
+<div class="card mb-3 p-3">
+  <div class="d-flex flex-column gap-3">
+    <div class="d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="fw-semibold">Período:</div>
+        <div class="btn-group" role="group" aria-label="Periodo">
+          <a href="{{ url_for('admin_dashboard_principal', period='week') }}"
+             class="btn btn-sm btn-outline-secondary {% if period == 'week' %}active{% endif %}">
+            Última Semana
+          </a>
+
+          <a href="{{ url_for('admin_dashboard_principal', period='month') }}"
+             class="btn btn-sm btn-outline-secondary {% if period == 'month' %}active{% endif %}">
+            Último Mes
+          </a>
+
+          <a href="{{ url_for('admin_dashboard_principal', period='6months') }}"
+             class="btn btn-sm btn-outline-secondary {% if period == '6months' %}active{% endif %}">
+            Últimos 6 Meses
+          </a>
+
+          <a href="{{ url_for('admin_dashboard_principal', period='year') }}"
+             class="btn btn-sm btn-outline-secondary {% if period == 'year' %}active{% endif %}">
+            Último Año
+          </a>
+        </div>
+
+        <div class="ms-3 d-flex align-items-center gap-2">
+          <label class="mb-0 text-muted">Año:</label>
+          <select class="form-select form-select-sm w-auto" disabled>
+            <option selected>{{ current_year }}</option>
+          </select>
+        </div>
+
+        <div class="ms-3 d-flex align-items-center gap-2">
+          <label class="mb-0 text-muted">Personalizado:</label>
+          <input class="form-control form-control-sm date-input" placeholder="dd-mm-aaaa" disabled>
+          <span class="text-muted">→</span>
+          <input class="form-control form-control-sm date-input" placeholder="dd-mm-aaaa" disabled>
+          <button class="btn btn-sm btn-secondary ms-2" disabled>Aplicar</button>
+        </div>
+      </div>
+
+      <div class="text-muted small">
+        Rango seleccionado: {{ start_date_str }} → {{ today_str }} ({{ period_label }})
+      </div>
+    </div>
+
+    <!-- <div class="row g-3">
+      <div class="col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-title">Total Reservas</div>
+          <div class="kpi-value">{{ total_reservas }}</div>
+          <div class="small text-muted">En el período</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-title">Tasa de Consumo</div>
+          <div class="kpi-value">{{ tasa_consumo }}%</div>
+          <div class="small text-muted">Eficiencia</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-title">% Desperdicio</div>
+          <div class="kpi-value text-danger">{{ actual }}%</div>
+          <div class="small text-muted">Meta: {{ meta }}%</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-title">Costo Desperdicio</div>
+          <div class="kpi-value text-danger">${{ '{:,.0f}'.format(total_merma_cost|default(0.0)) }}</div>
+          <div class="small text-muted">En el período</div>
+        </div>
+      </div>
+    </div> -->
+
+    <!-- Progreso hacia meta -->
+    <div class="progress-reduction card mt-2 p-3">
+      <div class="progress-header mb-3">
+        <div class="progress-title">
+          <h5 class="mb-2">📊 Progreso hacia Meta de Reducción de Desperdicios</h5>
+          <div class="small text-muted">Antes: 25% → Actual: {{ actual }}%</div>
+        </div>
+        <div class="progress-meta">
+          <div class="small text-muted">Meta: {{ meta }}%</div>
+        </div>
+      </div>
+
+      <div class="progress progress-bar-height">
+        <div class="progress-bar progress-bar-gradient"
+             role="progressbar"
+             style="--progress-width: {{ progress_percent|round(1) }}%; --progress-text: '{{ progress_percent|round(1) }}% Completado';"
+             aria-valuenow="{{ progress_percent }}"
+             aria-valuemin="0"
+             aria-valuemax="100">
+          <span class="progress-text">{{ progress_percent|round(1) }}% Completado</span>
+        </div>
+      </div>
+
+      <div class="row mt-4 g-3">
+        <div class="col-md-3">
+          <div class="card p-3 status-card status-card-danger">
+            <div class="small text-muted">Antes (período previo)</div>
+            <div class="h5 text-danger fw-bold">{{ antes }}%</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card p-3 status-card status-card-warning">
+            <div class="small text-muted">Actual</div>
+            <div class="h5 text-warning fw-bold">{{ actual }}%</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card p-3 status-card status-card-success">
+            <div class="small text-muted">Meta</div>
+            <div class="h5 text-success fw-bold">{{ meta }}%</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card p-3 status-card status-card-info">
+            <div class="small text-muted">Ya Reducido</div>
+            <div class="h5 text-info fw-bold">{{ ya_reducido }}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sección inferior: gráficas y tablas en grid 2x2 -->
+<div class="row mt-3 g-3">
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h5>Reservas Consumidas vs No consumidas</h5>
+      <canvas id="chart-consumidas"></canvas>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h5>Platos Servidos vs No Consumidos</h5>
+      <canvas id="chart-platos"></canvas>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h6>Merma Producida (%)</h6>
+      <canvas id="chart-merma"></canvas>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h6>Jornadas de Cocina</h6>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr><th>Fecha</th><th>Planif.</th><th>Prep.</th><th>Cons.</th><th>% Efic.</th></tr>
+          </thead>
+          <tbody>
+            {% for j in jornadas %}
+            <tr>
+              <td>{{ j.menu_dia.fecha if j.menu_dia else '' }}</td>
+              <td>{{ j.raciones_planificadas }}</td>
+              <td>{{ j.raciones_preparadas }}</td>
+              <td>{{ j.raciones_disponibles }}</td>
+              <td>
+                <span class="badge-km">
+                  {{ ((j.raciones_preparadas and j.raciones_planificadas) and ((j.raciones_preparadas/j.raciones_planificadas*100)|round(1)) or '0.0') }}%
+                </span>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">No hay jornadas</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ALERTAS -->
+<h5 class="mt-3 mb-3">Alertas de Reducción de Desperdicios</h5>
+
+<div class="card mb-3 alert-days-card">
+  <div class="card-body p-3">
+    <h6 class="text-danger mb-3">📉 Días con Mayor Desperdicio</h6>
+    <div class="d-flex gap-3 flex-wrap">
+      {% for m in mermas[:4] %}
+      <div class="card p-3 alert-card alert-card-danger">
+        <div class="small text-muted">{{ m.fecha }}</div>
+        <div class="h5 text-danger">
+          {{ ((total_merma_qty > 0) and ((m.cantidad / total_merma_qty * 100)|round(1)) or 0) }}%
+        </div>
+        <div class="small text-muted">${{ '{:,.0f}'.format(m.costo_perdido) }} CLP</div>
+      </div>
+      {% else %}
+        <div class="text-muted">No hay registros suficientes</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3 risk-days-card">
+  <div class="card-body p-3">
+    <h6 class="text-warning mb-3">⚠️ Riesgo de Desperdicio - Lotes por Vencer</h6>
+    <div class="d-flex gap-2 flex-wrap">
+      {% for lot in lots_near %}
+      <div class="card p-2 risk-card risk-card-warning">
+        <div class="fw-semibold">{{ lot.nombre }}</div>
+        <div class="small">{{ lot.cantidad }} {{ lot.unidad }}</div>
+        <div class="small text-warning">⚠ {{ lot.days_left }} días</div>
+      </div>
+      {% else %}
+        <div class="text-muted">No hay lotes próximos a vencer</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="recommendation mt-3 p-3 recommendation-panel">

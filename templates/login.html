@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KitchenMetrics - Acceso Seguro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" 
+                 alt="KitchenMetrics Logo" 
+                 class="logo-image">
+        </div>
+
+        <div class="slogan">"Sincronizando la demanda, optimizando el recurso."</div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert-error">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="/login" method="POST" id="loginForm">
+            <input type="email" 
+                   name="email" 
+                   placeholder="Correo Institucional (@hospital.cl)" 
+                   required 
+                   autocomplete="email">
+            
+            <input type="password" 
+                   name="password" 
+                   placeholder="Contraseña" 
+                   required 
+                   autocomplete="current-password">
+            
+            <button type="submit">INGRESAR AL SISTEMA</button>
+        </form>
+    </div>
+
+</body>
+</html>
