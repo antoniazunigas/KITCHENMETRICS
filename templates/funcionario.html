@@ -42,39 +42,60 @@
                         </tr>
                     </thead>
                     <tbody>
-    {% for jornada in jornadas %}
-    <tr>
-        <td>
-            {# Lógica matemática para obtener Entrada (n), Fondo (n+1) y Postre (n+2) #}
-            {% set n = (loop.index0 % 3) * 3 %}
-            
-            <strong>🍱 {{ jornada.menu_dia.detalles[n + 1].plato.nombre }}</strong><br>
-            <small style="color: #666;">
-                🥗 {{ jornada.menu_dia.detalles[n].plato.nombre }} | 
-                🍰 {{ jornada.menu_dia.detalles[n + 2].plato.nombre }}
-            </small>
-        </td>
-        <td>
-            <span class="tag-dieta" style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 5px; font-weight: bold;">
-                {% if (loop.index0 % 3) == 2 %}Vegano{% else %}Normal{% endif %}
-            </span>
-        </td>
-        <td><strong>{{ jornada.menu_dia.fecha }}</strong></td>
-        <td class="text-center">
-            <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST" onsubmit="return confirmarReserva()">
-                <button type="submit" class="btn-action" 
-                    {% if reserva_activa or jornada.raciones_disponibles == 0 %}
-                        disabled style="opacity:0.5; cursor:not-allowed; background: #95a5a6; border:none;"
-                    {% endif %}>
-                    {% if reserva_activa %} Ya tienes reserva
-                    {% elif jornada.raciones_disponibles == 0 %} Agotado
-                    {% else %} Reservar Menú {% endif %}
-                </button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
+                        {% for jornada in jornadas %}
+                        <tr>
+                            <td>
+                                {% if loop.index0 % 3 == 0 %}
+                                    <strong>🍱 {{ jornada.menu_dia.detalles[1].plato.nombre }}</strong><br>
+                                    <small style="color: #666;">
+                                        🥗 {{ jornada.menu_dia.detalles[0].plato.nombre }} | 
+                                        🍰 {{ jornada.menu_dia.detalles[2].plato.nombre }}
+                                    </small>
+                                {% elif loop.index0 % 3 == 1 %}
+                                    <strong>🍱 {{ jornada.menu_dia.detalles[4].plato.nombre }}</strong><br>
+                                    <small style="color: #666;">
+                                        🥗 {{ jornada.menu_dia.detalles[3].plato.nombre }} | 
+                                        🍰 {{ jornada.menu_dia.detalles[5].plato.nombre }}
+                                    </small>
+                                {% else %}
+                                    <strong>🍱 {{ jornada.menu_dia.detalles[7].plato.nombre }}</strong><br>
+                                    <small style="color: #666;">
+                                        🥗 {{ jornada.menu_dia.detalles[6].plato.nombre }} | 
+                                        🍰 {{ jornada.menu_dia.detalles[8].plato.nombre }}
+                                    </small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="tag-dieta" style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 5px; font-weight: bold;">
+                                    {% if loop.index0 % 3 == 2 %}Vegano{% else %}Normal{% endif %}
+                                </span>
+                            </td>
+                            <td><strong>{{ jornada.menu_dia.fecha }}</strong></td>
+                            <td class="text-center">
+                                <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST" onsubmit="return confirmarReserva()">
+                                    <button type="submit" class="btn-action" 
+                                        {% if reserva_activa or jornada.raciones_disponibles == 0 %}
+                                            disabled style="opacity:0.5; cursor:not-allowed; background: #95a5a6; border:none;"
+                                        {% endif %}>
+                                        {% if reserva_activa %}
+                                            Ya tienes reserva
+                                        {% elif jornada.raciones_disponibles == 0 %}
+                                            Agotado
+                                        {% else %}
+                                            Reservar Menú
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align:center; padding: 20px;">
+                                No hay menús publicados para mañana todavía. 📭
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
             </div>
         </div>

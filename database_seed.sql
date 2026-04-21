@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -- 1. LIMPIEZA TOTAL (En orden de jerarquía)
 DELETE FROM reserva; 
 DELETE FROM jornada_cocina; 
@@ -8,11 +9,22 @@ DELETE FROM plato;
 DELETE FROM ingrediente; 
 DELETE FROM usuario; 
 DELETE FROM rol;
+=======
+-- 1. LIMPIEZA TOTAL
+DELETE FROM merma_preparada; DELETE FROM merma_ingrediente; DELETE FROM consumo;
+DELETE FROM reserva; DELETE FROM jornada_cocina; DELETE FROM menu_detalle;
+DELETE FROM receta; DELETE FROM lote_ingrediente; DELETE FROM menu_dia;
+DELETE FROM plato; DELETE FROM ingrediente; DELETE FROM usuario; DELETE FROM rol;
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb
 
 -- 2. ROLES
 INSERT INTO rol (id_rol, nombre) VALUES (1, 'admin'), (2, 'cocina'), (3, 'funcionario');
 
+<<<<<<< HEAD
 -- 3. USUARIOS (Sincronizados con tus datos originales)
+=======
+-- 3. USUARIOS
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb
 INSERT INTO usuario (id_usuario, id_rol, rut, nombre, apellido, email, contrasena, faltas_acumuladas, estado) VALUES
 (1, 1, '184562346', 'Ana', 'Rojas', 'ana.rojas@hospital.cl', '184562346', 0, 'activo'),
 (2, 2, '227749806', 'Luis', 'Pérez', 'luis.perez@hospital.cl', '227749806', 0, 'activo'),
@@ -22,8 +34,11 @@ INSERT INTO usuario (id_usuario, id_rol, rut, nombre, apellido, email, contrasen
 (6, 1, '186634568', 'Pedro', 'Luna', 'pedro.luna@hospital.cl', '186634568', 0, 'activo'),
 (7, 3, '130078975', 'Elena', 'Vega', 'elena.vega@hospital.cl', '130078975', 0, 'activo'),
 <<<<<<< HEAD
+<<<<<<< HEAD
 (12, 3, '130963457', 'Jorge', 'Navarro', 'jorge.navarro@hospital.cl', '130963457', 0, 'activo');
 =======
+=======
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb
 (10, 3, '187746239', 'Diego', 'Fuentes', 'diego.fuentes@hospital.cl', '187746239', 0, 'activo'),
 (11, 3, '150079984', 'Camila', 'Reyes', 'camila.reyes@hospital.cl', '150079984', 0, 'activo'),
 (12, 3, '130963457', 'Jorge', 'Navarro', 'jorge.navarro@hospital.cl', '130963457', 0, 'activo'),
@@ -41,18 +56,26 @@ INSERT INTO usuario (id_usuario, id_rol, rut, nombre, apellido, email, contrasen
 (24, 2, '19.012.345-6', 'Carmen', 'Torres', 'carmen.torres@hospital.cl', '', 0, 'activo'),
 (25, 2, '11.234.567-8', 'Roberto', 'Díaz', 'roberto.diaz@hospital.cl', '', 0, 'activo');
 
+<<<<<<< HEAD
 >>>>>>> a9c2148242811b6e17126034a0d7123e4629ed13
+=======
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb
 
 -- 4. INGREDIENTES
 INSERT INTO ingrediente (id_ingrediente, nombre, unidad_medida) VALUES
 (1, 'Arroz', 'kg'), (2, 'Pollo', 'kg'), (3, 'Carne', 'kg'), (4, 'Tomate', 'kg'),
 (5, 'Lechuga', 'unidad'), (6, 'Papa', 'kg'), (7, 'Aceite', 'lt'), (8, 'Sal', 'gr'),
 <<<<<<< HEAD
+<<<<<<< HEAD
 (9, 'Harina', 'kg'), (11, 'Tallarines', 'Kg'), (12, 'Zapallo', 'kg'), (13, 'Lentejas', 'kg'), (14, 'Azúcar', 'gr');
 =======
 (9, 'Harina', 'kg'), (10, 'Azúcar', 'gr'), (11, 'Tallarines', 'Kg'), (12, 'Lentejas', 'Kg'),
 (13, 'Pasta', 'kg'), (14, 'Leche Descremada', 'L'), (15, 'Queso Fresco', 'kg');
 >>>>>>> a9c2148242811b6e17126034a0d7123e4629ed13
+=======
+(9, 'Harina', 'kg'), (10, 'Azúcar', 'gr'), (11, 'Tallarines', 'Kg'), (12, 'Lentejas', 'Kg'),
+(13, 'Pasta', 'kg'), (14, 'Leche Descremada', 'L'), (15, 'Queso Fresco', 'kg');
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb
 
 -- 5. PLATOS
 INSERT INTO plato (id_plato, nombre, tipo_plato, tipo_dieta) VALUES
@@ -62,6 +85,7 @@ INSERT INTO plato (id_plato, nombre, tipo_plato, tipo_dieta) VALUES
 (4, 'Tarta de Manzana', 'postre', 'Normal'),
 (5, 'Sopa del Día', 'entrada', 'Normal'),
 (6, 'Budín de Pan', 'postre', 'Normal'),
+<<<<<<< HEAD
 (7, 'Lentejas Guisadas', 'fondo', 'Vegano'),
 (8, 'Jalea de Frutas', 'postre', 'Normal'),
 (9, 'Lasaña de Verduras', 'fondo', 'Vegano'),
@@ -114,6 +138,11 @@ SELECT (id_menu * 3 + 1), id_menu, 50, 50, 50 FROM menu_dia;
 INSERT INTO jornada_cocina (id_jornada, id_menu, raciones_planificadas, raciones_preparadas, raciones_disponibles)
 SELECT (id_menu * 3 + 2), id_menu, 50, 50, 50 FROM menu_dia;
 =======
+=======
+(7, 'Lentejas', 'fondo', 'Normal'),
+(8, 'Jalea', 'postre', 'Normal'),
+(9, 'Lasaña de Verduras', 'fondo', 'Vegano'),
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb
 (10, 'Cazuela de Ave', 'entrada', 'Normal'),
 (11, 'Gelatina', 'postre', 'Blanda'),
 (12, 'Pasta Boloñesa', 'Principal', 'normal'),
@@ -334,5 +363,9 @@ SELECT setval(pg_get_serial_sequence('receta','id_receta'), COALESCE((SELECT MAX
 SELECT setval(pg_get_serial_sequence('reserva','id_reserva'), COALESCE((SELECT MAX(id_reserva) FROM reserva), 1), true);
 SELECT setval(pg_get_serial_sequence('consumo','id_consumo'), COALESCE((SELECT MAX(id_consumo) FROM consumo), 1), true);
 SELECT setval(pg_get_serial_sequence('merma_ingrediente','id_merma_ing'), COALESCE((SELECT MAX(id_merma_ing) FROM merma_ingrediente), 1), true);
+<<<<<<< HEAD
 SELECT setval(pg_get_serial_sequence('merma_preparada','id_merma_prep'), COALESCE((SELECT MAX(id_merma_prep) FROM merma_preparada), 1), true);
 >>>>>>> a9c2148242811b6e17126034a0d7123e4629ed13
+=======
+SELECT setval(pg_get_serial_sequence('merma_preparada','id_merma_prep'), COALESCE((SELECT MAX(id_merma_prep) FROM merma_preparada), 1), true);
+>>>>>>> ffc40f9a8c3d068ad6e9ddbfa41ad3d87b974beb

@@ -20,7 +20,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# --- MODELOS ---
+# --- MODELOS DE BASE DE DATOS ---
+
 class Rol(db.Model):
     __tablename__ = "rol"
     id_rol = db.Column(db.Integer, primary_key=True)
@@ -47,7 +48,7 @@ class MenuDia(db.Model):
     fecha = db.Column(db.Date, nullable=False)
     estado = db.Column(db.String(20), nullable=False, default="activo")
     jornadas = db.relationship("JornadaCocina", back_populates="menu_dia")
-    detalles = db.relationship("MenuDetalle", back_populates="menu_dia", order_by="MenuDetalle.orden")
+    detalles = db.relationship("MenuDetalle", back_populates="menu_dia")
 
 class Plato(db.Model):
     __tablename__ = "plato"
@@ -60,7 +61,10 @@ class Plato(db.Model):
 
 class MenuDetalle(db.Model):
     __tablename__ = "menu_detalle"
-    __table_args__ = (UniqueConstraint("id_menu", "orden", name="uq_menu_detalle_menu_orden"),)
+    __table_args__ = (
+        UniqueConstraint("id_menu", "id_plato", name="uq_menu_detalle_menu_plato"),
+        UniqueConstraint("id_menu", "orden", name="uq_menu_detalle_menu_orden"),
+    )
     id_menu_detalle = db.Column(db.Integer, primary_key=True)
     id_menu = db.Column(db.Integer, db.ForeignKey("menu_dia.id_menu"), nullable=False)
     id_plato = db.Column(db.Integer, db.ForeignKey("plato.id_plato"), nullable=False)
@@ -74,22 +78,23 @@ class Ingrediente(db.Model):
     nombre = db.Column(db.String(30), nullable=False, unique=True)
     unidad_medida = db.Column(db.String(10), nullable=False)
     recetas = db.relationship("Receta", back_populates="ingrediente")
+    lotes = db.relationship("LoteIngrediente", back_populates="ingrediente")
 
 class LoteIngrediente(db.Model):
     __tablename__ = "lote_ingrediente"
     id_lote = db.Column(db.Integer, primary_key=True)
     id_ingrediente = db.Column(db.Integer, db.ForeignKey("ingrediente.id_ingrediente"), nullable=False)
-    fecha_adquisicion = db.Column(db.Date, nullable=False, default=date.today)
+    fecha_ingreso = db.Column(db.Date, nullable=False)
     fecha_vencimiento = db.Column(db.Date, nullable=False)
     cantidad_inicial = db.Column(db.Numeric(10, 3), nullable=False)
-    cantidad_actual = db.Column(db.Numeric(10, 3), nullable=False)
+    cantidad_disponible = db.Column(db.Numeric(10, 3), nullable=False)
     costo_unitario = db.Column(db.Numeric(12, 2), nullable=False)
-    
-    ingrediente = db.relationship("Ingrediente", backref="lotes")
+    ingrediente = db.relationship("Ingrediente", back_populates="lotes")
     mermas = db.relationship("MermaIngrediente", back_populates="lote")
 
 class Receta(db.Model):
     __tablename__ = "receta"
+    __table_args__ = (UniqueConstraint("id_plato", "id_ingrediente", name="uq_receta_plato_ingrediente"),)
     id_receta = db.Column(db.Integer, primary_key=True)
     id_plato = db.Column(db.Integer, db.ForeignKey("plato.id_plato"), nullable=False)
     id_ingrediente = db.Column(db.Integer, db.ForeignKey("ingrediente.id_ingrediente"), nullable=False)
@@ -101,8 +106,8 @@ class JornadaCocina(db.Model):
     __tablename__ = "jornada_cocina"
     id_jornada = db.Column(db.Integer, primary_key=True)
     id_menu = db.Column(db.Integer, db.ForeignKey("menu_dia.id_menu"), nullable=False)
-    # Cambiamos el nombre aquí para que coincida con lo que busca el Dashboard
-    raciones_preparadas = db.Column(db.Integer, nullable=False) 
+    raciones_planificadas = db.Column(db.Integer, nullable=False)
+    raciones_preparadas = db.Column(db.Integer, nullable=False)
     raciones_disponibles = db.Column(db.Integer, nullable=False)
     menu_dia = db.relationship("MenuDia", back_populates="jornadas")
     reservas = db.relationship("Reserva", back_populates="jornada")
@@ -168,8 +173,10 @@ def login_required(role=None):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if 'user_id' not in session: return redirect(url_for('index'))
-            if role and session.get('user_rol').lower() != role.lower(): 
+            if 'user_id' not in session:
+                flash("Sesión expirada.", "danger")
+                return redirect(url_for('index'))
+            if role and session.get('user_rol').lower() != role.lower():
                 flash("Acceso denegado.", "danger")
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
@@ -178,7 +185,8 @@ def login_required(role=None):
 
 # --- RUTAS ---
 @app.route('/')
-def index(): return render_template('login.html')
+def index():
+    return render_template('login.html')
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -205,15 +213,12 @@ def panel_funcionario():
     user = Usuario.query.get(session['user_id'])
     ahora = datetime.now()
     hoy = date.today()
+    limite_hoy = datetime.combine(hoy, datetime.strptime("15:00", "%H:%M").time())
 
-    # --- LÓGICA DE FALTAS AUTOMÁTICAS AL ENTRAR (No depende de que el PC esté prendido) ---
     reservas_vencidas = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
         Reserva.id_usuario == user.id_usuario,
         Reserva.estado == 'confirmada',
-        or_(
-            MenuDia.fecha < hoy, 
-            (MenuDia.fecha == hoy) & (ahora.hour >= 15) 
-        )
+        or_(MenuDia.fecha < hoy, (MenuDia.fecha == hoy) & (ahora > limite_hoy))
     ).all()
 
     if reservas_vencidas:
@@ -221,48 +226,55 @@ def panel_funcionario():
             res.estado = 'no_retirada'
             user.faltas_acumuladas += 1
         db.session.commit()
-        flash(f"Se han registrado {len(reservas_vencidas)} falta(s) por menús no retirados.", "danger")
 
     manana = hoy + timedelta(days=1)
-    jornadas = JornadaCocina.query.join(MenuDia).filter(MenuDia.fecha == manana).order_by(JornadaCocina.id_jornada).all()
+    jornadas = db.session.query(JornadaCocina).join(MenuDia).filter(
+        MenuDia.estado == 'activo', MenuDia.fecha == manana
+    ).all()
     reserva_activa = Reserva.query.filter_by(id_usuario=user.id_usuario, estado='confirmada').first()
-    
-    return render_template('funcionario.html', 
-                           jornadas=jornadas, 
-                           reserva_activa=reserva_activa, 
-                           faltas=user.faltas_acumuladas, 
-                           nombre=session['user_nombre'])
+    return render_template('funcionario.html', nombre=session['user_nombre'], jornadas=jornadas, faltas=user.faltas_acumuladas, reserva_activa=reserva_activa)
 
 @app.route('/reservar/<int:id_jornada>', methods=['POST'])
 @login_required(role='funcionario')
 def reservar(id_jornada):
     jornada = db.session.get(JornadaCocina, id_jornada)
-    if jornada and jornada.raciones_disponibles > 0:
-        try:
-            nueva = Reserva(id_usuario=session.get('user_id'), id_jornada=id_jornada)
-            jornada.raciones_disponibles -= 1
-            db.session.add(nueva)
-            db.session.commit()
-            flash("¡Reserva exitosa!", "success")
-        except:
-            db.session.rollback()
-            flash("Ya tienes una reserva activa.", "warning")
+    if not jornada or jornada.raciones_disponibles <= 0:
+        flash("Sin cupos disponibles para este menú.", "warning")
+        return redirect(url_for('panel_funcionario'))
+
+    try:
+        nueva_reserva = Reserva(id_usuario=session['user_id'], id_jornada=id_jornada)
+        jornada.raciones_disponibles -= 1
+        db.session.add(nueva_reserva)
+        db.session.commit()
+        flash("¡Reserva exitosa!", "success")
+    except Exception:
+        db.session.rollback()
+        flash("Ya reservaste y retiraste el menú de hoy", "danger")
+
     return redirect(url_for('panel_funcionario'))
 
 @app.route('/retirar/<int:id_reserva>', methods=['POST'])
 @login_required(role='funcionario')
 def retirar(id_reserva):
     reserva = db.session.get(Reserva, id_reserva)
-    password = request.form.get('password_confirmacion')
-    user = Usuario.query.get(session.get('user_id'))
-    if reserva and user.contrasena == password:
+    user = Usuario.query.get(session['user_id'])
+    pass_confirm = request.form.get('password_confirmacion')
+    if reserva and user.contrasena == pass_confirm:
         reserva.estado = 'consumida'
         db.session.commit()
-        flash("Menú retirado con éxito.", "success")
+        flash("Retiro confirmado.", "success")
     else:
-        flash("Contraseña incorrecta.", "danger")
+        flash("Clave incorrecta.", "danger")
     return redirect(url_for('panel_funcionario'))
 
+@app.route('/admin')
+@login_required(role='admin')
+def panel_admin():
+    return render_template('admin.html',
+        nombre=session['user_nombre'],
+        menus=MenuDia.query.all(),
+        usuarios=Usuario.query.all())
 
 @app.route('/admin/dashboard/principal')
 @login_required(role='admin')
@@ -343,99 +355,51 @@ def admin_usuario_desbloquear(id_usuario):
 @login_required(role='cocina')
 def panel_cocina():
     modo = request.args.get('modo', 'hoy')
-    ahora = datetime.now()
-    fecha_consulta = date.today() if modo == 'hoy' else date.today() + timedelta(days=1)
 
-  
-    if modo == 'hoy' and ahora.hour >= 15:
-       
-        pendientes_hoy = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
-            MenuDia.fecha == fecha_consulta,
-            Reserva.estado == 'confirmada'
-        ).all()
-        
-        if pendientes_hoy:
-            for res in pendientes_hoy:
-                res.estado = 'no_retirada'
-                res.usuario.faltas_acumuladas += 1
-            db.session.commit()
+    if modo == 'manana':
+        fecha_consulta = date.today() + timedelta(days=1)
+        titulo_panel = "Planificación de Producción - MAÑANA"
+    else:
+        fecha_consulta = date.today()
+        titulo_panel = "Panel de Control de Entregas - HOY"
 
-    
     reservas_lista = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
         MenuDia.fecha == fecha_consulta
     ).all()
-    
-    resumen_fondos, resumen_entradas, resumen_postres = {}, {}, {}
+
+    resumen_platos = {}
     calculo_ingredientes = {}
+    indices_fondo = {0: 1, 1: 4, 2: 7}
 
-    categorias_ing = {
-        'Pollo': 'Proteínas', 'Carne': 'Proteínas',
-        'Zapallo': 'Vegetales', 'Papa': 'Vegetales', 'Tomate': 'Vegetales', 'Lechuga': 'Vegetales', 
-        'Arroz': 'Abarrotes', 'Aceite': 'Abarrotes', 'Harina': 'Abarrotes', 'Sal': 'Abarrotes', 
-        'Azúcar': 'Abarrotes', 'Lentejas': 'Legumbres'
-    }
-
-    
-   
-   
     for r in reservas_lista:
-        # Quitamos el filtro de estado para que los kilos se mantengan siempre
-        # Calculamos los índices de la bandeja (0, 1 o 2) usando el operador %
-        resto = r.id_jornada % 3
-        
-        # Definimos los índices de los platos en la lista de detalles
-        # Bandeja 1 (resto 0): Fondo en pos 1 | Bandeja 2 (resto 1): Fondo en pos 4 | Bandeja 3 (resto 2): Fondo en pos 7
-        idx_fondo = 1 if resto == 0 else (4 if resto == 1 else 7)
-        inicio_bandeja = 0 if resto == 0 else (3 if resto == 1 else 6)
-        
-        detalles = r.jornada.menu_dia.detalles
-        if len(detalles) > idx_fondo:
-            # 1. Conteo de Platos para las tarjetas superiores
-            f = detalles[idx_fondo].plato.nombre
-            e = detalles[idx_fondo - 1].plato.nombre
-            p = detalles[idx_fondo + 1].plato.nombre
-            
-            resumen_fondos[f] = resumen_fondos.get(f, 0) + 1
-            resumen_entradas[e] = resumen_entradas.get(e, 0) + 1
-            resumen_postres[p] = resumen_postres.get(p, 0) + 1
+        if r.estado != 'no_retirada':
+            n_bandeja = r.id_jornada % 3
+            idx = indices_fondo.get(n_bandeja, 1)
 
-            # 2. Sumatoria de Insumos (Cálculo de kilos totales)
-            # Recorremos solo los 3 platos de la bandeja seleccionada (entrada, fondo, postre)
-            for i in range(inicio_bandeja, inicio_bandeja + 3):
-                plato_actual = detalles[i].plato
-                for rec in plato_actual.recetas:
-                    n, u = rec.ingrediente.nombre, rec.ingrediente.unidad_medida
-                    cat = categorias_ing.get(n, 'Otros')
-                    
-                    if cat not in calculo_ingredientes:
-                        calculo_ingredientes[cat] = {}
-                    
-                    if n not in calculo_ingredientes[cat]:
-                        calculo_ingredientes[cat][n] = {'cantidad': 0, 'unidad': u}
-                    
-                    calculo_ingredientes[cat][n]['cantidad'] += float(rec.cantidad_por_porcion)
+            if len(r.jornada.menu_dia.detalles) > idx:
+                nombre_fondo = r.jornada.menu_dia.detalles[idx].plato.nombre
+                resumen_platos[nombre_fondo] = resumen_platos.get(nombre_fondo, 0) + 1
+
+                for detalle in r.jornada.menu_dia.detalles:
+                    for item in detalle.plato.recetas:
+                        ing = item.ingrediente
+                        if ing.nombre not in calculo_ingredientes:
+                            calculo_ingredientes[ing.nombre] = {'cantidad': 0, 'unidad': ing.unidad_medida}
+                        calculo_ingredientes[ing.nombre]['cantidad'] += float(item.cantidad_por_porcion)
 
     return render_template(
         'cocina.html',
         nombre=session['user_nombre'],
         reservas=reservas_lista,
-        resumen=resumen_fondos,
-        entradas=resumen_entradas,  
-        postres=resumen_postres,     
+        resumen=resumen_platos,
         ingredientes=calculo_ingredientes,
         fecha_ver=fecha_consulta,
-        titulo="Entregas - HOY" if modo == 'hoy' else "Planificación - MAÑANA", 
+        titulo=titulo_panel,
         modo=modo,
         datetime=datetime
     )
 
-@app.route('/admin')
-@login_required(role='admin')
-def panel_admin():
-    usuarios = Usuario.query.all()
-    menus = MenuDia.query.order_by(MenuDia.fecha.desc()).all()
-    return render_template('admin.html', usuarios=usuarios, menus=menus, nombre=session.get('user_nombre'))
-
 if __name__ == '__main__':
-    with app.app_context(): db.create_all()
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
