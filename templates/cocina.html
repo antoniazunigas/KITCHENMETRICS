@@ -2,94 +2,131 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KitchenMetrics - Cocina</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
 </head>
 <body class="cocina-body">
-
     <header class="cocina-header">
         <div class="logo-area">
             <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo">
-            <h2 style="margin:0; font-size: 1.2rem;">{{ titulo }}</h2>
+            <h2>{{ titulo }}</h2>
         </div>
-        
         <div class="view-selector">
             <a href="/cocina?modo=hoy" class="btn-toggle {{ 'active' if modo == 'hoy' else '' }}">HOY</a>
             <a href="/cocina?modo=manana" class="btn-toggle {{ 'active' if modo == 'manana' else '' }}">MAÑANA</a>
         </div>
-
         <div class="user-area">
-            <span>👨‍🍳 {{ nombre }}</span>
-            <a href="/logout" class="btn-logout">Cerrar Sesión</a>
+            <div class="user-info">
+                <span>👨‍🍳 Chef <strong>{{ nombre }}</strong></span>
+                <a href="/logout" class="btn-logout">Cerrar Sesión</a>
+            </div>
         </div>
     </header>
 
     <main class="cocina-container">
         <div class="dashboard-grid">
+            
             <section class="card">
-                <h3>🍲 Preparación para {{ 'Hoy' if modo == 'hoy' else 'Mañana' }}</h3>
-                <div class="platos-lista">
-                    {% for plato, cant in resumen.items() %}
+                <h3>🥗 Cantidad a Preparar (Entradas)</h3>
+                <div class="resumen-lista">
+                    {% for nombre, cant in entradas.items() %}
                     <div class="plato-item">
-                        <span>{{ plato }}</span>
-                        <span class="plato-cant">{{ cant }} raciones</span>
+                        <span class="plato-nombre">{{ nombre }}</span>
+                        <span class="plato-badge info">{{ cant }} porciones</span>
                     </div>
                     {% endfor %}
                 </div>
             </section>
 
             <section class="card">
-                <h3>⚖️ Insumos Totales</h3>
-                <div class="insumos-grid">
-                    {% for ing, datos in ingredientes.items() %}
-                    <div class="insumo-tag">
-                        <strong>{{ ing }}:</strong> {{ "%.2f"|format(datos.cantidad) }} {{ datos.unidad }}
+                <h3>🍲 Cantidad a Preparar (Fondos)</h3>
+                <div class="resumen-lista">
+                    {% for plato, cant in resumen.items() %}
+                    <div class="plato-item">
+                        <span class="plato-nombre">{{ plato }}</span>
+                        <span class="plato-badge primary">{{ cant }} porciones</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="card">
+                <h3>🍰 Cantidad a Preparar (Postres)</h3>
+                <div class="resumen-lista">
+                    {% for nombre, cant in postres.items() %}
+                    <div class="plato-item">
+                        <span class="plato-nombre">{{ nombre }}</span>
+                        <span class="plato-badge success">{{ cant }} porciones</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="card wide-card">
+                <h3>⚖️ Insumos Totales Requeridos</h3>
+                <p style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">(Cálculo acumulado de toda la bandeja: entrada + fondo + postre)</p>
+                <div class="categorias-insumos">
+                    {% for categoria, items in ingredientes.items() %}
+                    <div class="grupo-insumo">
+                        <h4 class="titulo-categoria">{{ categoria }}</h4>
+                        <div class="insumos-flex">
+                            {% for nombre, datos in items.items() %}
+                            <div class="insumo-tag-pro">
+                                <span class="nom">{{ nombre }}</span>
+                                <span class="val">{{ "%.2f"|format(datos.cantidad) }} {{ datos.unidad }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
             </section>
         </div>
 
-        <section class="card">
-            <h3>📋 Lista de Reservas ({{ fecha_ver }})</h3>
-            <table class="tabla-cocina">
-                <thead>
-                    <tr>
-                        <th>Funcionario</th>
-                        <th>Bandeja</th>
-                        <th class="text-center">Estado de Retiro</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in reservas %}
-                    <tr>
-                        <td>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</td>
-                        <td>
-                            {% set n_bandeja = r.id_jornada % 3 %}
-                            {% set indices = {0: 1, 1: 4, 2: 7} %}
-                            {{ r.jornada.menu_dia.detalles[indices[n_bandeja]].plato.nombre }}
-                        </td>
-                        <td class="text-center">
-                            {% if modo == 'manana' %}
-                                <span class="status-badge confirmada">🕒 PENDIENTE (MAÑANA)</span>
-                            {% else %}
-                                {% set ahora = datetime.now() %}
-                                {% set limite = datetime.combine(r.jornada.menu_dia.fecha, datetime.strptime("15:00", "%H:%M").time()) %}
-                                
-                                {% if r.estado == 'consumida' %}
-                                    <span class="status-badge consumida">✅ RETIRADA</span>
-                                {% elif ahora > limite and r.estado == 'confirmada' %}
-                                    <span class="status-badge no_retirada">🚫 INCUMPLIMIENTO</span>
+        <section class="card table-card">
+            <h3>📋 Detalle de Reservas del Personal ({{ fecha_ver }})</h3>
+            <div class="table-container">
+                <table class="cocina-table">
+                    <thead>
+                        <tr>
+                            <th>Funcionario</th>
+                            <th>Bandeja (Fondo)</th>
+                            <th class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reservas %}
+                        <tr class="row-reserva">
+                            <td class="col-user">
+                                <strong>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</strong>
+                                <small>{{ r.usuario.rut }}</small>
+                            </td>
+                            <td class="col-plato">
+                                {% set resto = r.id_jornada % 3 %}
+                                {% if resto == 0 %}
+                                    <span class="fondo-tag pollo">🍗 {{ r.jornada.menu_dia.detalles[1].plato.nombre }}</span>
+                                {% elif resto == 1 %}
+                                    <span class="fondo-tag carne">🥩 {{ r.jornada.menu_dia.detalles[4].plato.nombre }}</span>
                                 {% else %}
-                                    <span class="status-badge confirmada">🕒 PENDIENTE</span>
+                                    <span class="fondo-tag lasaña">🥗 {{ r.jornada.menu_dia.detalles[7].plato.nombre }}</span>
                                 {% endif %}
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+                            <td class="col-estado text-center">
+                                {% if r.estado == 'consumida' %}
+                                    <span class="status consumido">✅ RETIRADA</span>
+                                {% elif r.estado == 'no_retirada' %}
+                                    <span class="status disponible" style="background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">
+                                        ⚠️ NO RETIRADO - DISPONIBLE
+                                    </span>
+                                {% else %}
+                                    <span class="status pendiente">🕒 PENDIENTE</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </section>
     </main>
 </body>
