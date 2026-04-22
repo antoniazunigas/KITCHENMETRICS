@@ -351,41 +351,49 @@ def admin_usuario_desbloquear(id_usuario):
     return redirect(request.referrer or url_for('admin_dashboard_principal'))
 
 
+
 @app.route('/cocina')
 @login_required(role='cocina')
 def panel_cocina():
     modo = request.args.get('modo', 'hoy')
+    fecha_consulta = date.today() + timedelta(days=1) if modo == 'manana' else date.today()
+    titulo_panel = "Planificación de Producción - MAÑANA" if modo == 'manana' else "Panel de Control de Entregas - HOY"
 
-    if modo == 'manana':
-        fecha_consulta = date.today() + timedelta(days=1)
-        titulo_panel = "Planificación de Producción - MAÑANA"
-    else:
-        fecha_consulta = date.today()
-        titulo_panel = "Panel de Control de Entregas - HOY"
-
-    reservas_lista = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
-        MenuDia.fecha == fecha_consulta
-    ).all()
+    reservas_lista = Reserva.query.join(JornadaCocina).join(MenuDia).filter(MenuDia.fecha == fecha_consulta).all()
 
     resumen_platos = {}
     calculo_ingredientes = {}
-    indices_fondo = {0: 1, 1: 4, 2: 7}
 
     for r in reservas_lista:
         if r.estado != 'no_retirada':
-            n_bandeja = r.id_jornada % 3
-            idx = indices_fondo.get(n_bandeja, 1)
+            # 1. Identificar la opción de fondo (1, 2 o 3)
+            n_opcion = (r.id_jornada % 3)
+            orden_fondo = 2 if n_opcion == 1 else (3 if n_opcion == 2 else 4)
 
-            if len(r.jornada.menu_dia.detalles) > idx:
-                nombre_fondo = r.jornada.menu_dia.detalles[idx].plato.nombre
-                resumen_platos[nombre_fondo] = resumen_platos.get(nombre_fondo, 0) + 1
+            # 2. Recorrer platos del menú de ese día
+            for detalle in r.jornada.menu_dia.detalles:
+                nom = detalle.plato.nombre
+                
+                # Sumamos el fondo elegido, la entrada (orden 1) y el postre (orden 5)
+                if detalle.orden == orden_fondo or detalle.orden == 1 or detalle.orden == 5:
+                    resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
 
-                for detalle in r.jornada.menu_dia.detalles:
+                # 3. CÁLCULO DE INSUMOS
+                if detalle.plato.recetas:
                     for item in detalle.plato.recetas:
-                        ing = item.ingrediente
-                        if ing.nombre not in calculo_ingredientes:
-                            calculo_ingredientes[ing.nombre] = {'cantidad': 0, 'unidad': ing.unidad_medida}
-                        calculo_ingredientes[ing.nombre]['cantidad'] += float(item.cantidad_por_porcion)
+                        ing_nombre = str(item.ingrediente.nombre)
+                        if ing_nombre not in calculo_ingredientes:
+                            calculo_ingredientes[ing_nombre] = {
+                                'cantidad': 0.0, 
+                                'unidad': str(item.ingrediente.unidad_medida)
+                            }
+                        
+                        try:
+                            valor_nuevo = float(item.cantidad_por_porcion)
+                            valor_actual = float(calculo_ingredientes[ing_nombre]['cantidad'])
+                            calculo_ingredientes[ing_nombre]['cantidad'] = valor_actual + valor_nuevo
+                        except (ValueError, TypeError):
+                            continue
 
     return render_template(
         'cocina.html',
@@ -398,6 +406,7 @@ def panel_cocina():
         modo=modo,
         datetime=datetime
     )
+
 
 if __name__ == '__main__':
     with app.app_context():

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KitchenMetrics - Cocina</title>
+    <title>KitchenMetrics - Panel de Cocina</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
 </head>
 <body class="cocina-body">
@@ -13,78 +13,126 @@
             <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo">
             <h2 style="margin:0; font-size: 1.2rem;">{{ titulo }}</h2>
         </div>
-        
         <div class="view-selector">
             <a href="/cocina?modo=hoy" class="btn-toggle {{ 'active' if modo == 'hoy' else '' }}">HOY</a>
             <a href="/cocina?modo=manana" class="btn-toggle {{ 'active' if modo == 'manana' else '' }}">MAÑANA</a>
         </div>
-
         <div class="user-area">
-            <span>👨‍🍳 {{ nombre }}</span>
+            <span>👨‍🍳 Chef: {{ nombre }}</span>
             <a href="/logout" class="btn-logout">Cerrar Sesión</a>
         </div>
     </header>
 
     <main class="cocina-container">
-        <div class="dashboard-grid">
-            <section class="card">
-                <h3>🍲 Preparación para {{ 'Hoy' if modo == 'hoy' else 'Mañana' }}</h3>
-                <div class="platos-lista">
-                    {% for plato, cant in resumen.items() %}
-                    <div class="plato-item">
-                        <span>{{ plato }}</span>
-                        <span class="plato-cant">{{ cant }} raciones</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </section>
+        <h3 class="section-title">📊 Planificación de Producción</h3>
+        <div class="production-grid">
+            {% set entradas = [] %}
+            {% set fondos = [] %}
+            {% set postres = [] %}
+            
+            {% for plato, cant in resumen.items() %}
+                {% if 'Ensalada' in plato or 'Sopa' in plato or 'Crema' in plato or 'Entrada' in plato %}
+                    {% set _ = entradas.append((plato, cant)) %}
+                {% elif 'Tarta' in plato or 'Budín' in plato or 'Postre' in plato or 'Manzana' in plato or 'Jalea' in plato %}
+                    {% set _ = postres.append((plato, cant)) %}
+                {% else %}
+                    {% set _ = fondos.append((plato, cant)) %}
+                {% endif %}
+            {% endfor %}
 
-            <section class="card">
-                <h3>⚖️ Insumos Totales</h3>
-                <div class="insumos-grid">
-                    {% for ing, datos in ingredientes.items() %}
-                    <div class="insumo-tag">
-                        <strong>{{ ing }}:</strong> {{ "%.2f"|format(datos.cantidad) }} {{ datos.unidad }}
-                    </div>
-                    {% endfor %}
-                </div>
-            </section>
+            <div class="card production-card">
+                <h4 class="card-header entrada">🥗 Entradas</h4>
+                {% for p, c in entradas %}
+                    <div class="item-resumen"><span>{{ p }}</span> <strong>{{ c }}</strong></div>
+                {% else %}<p class="empty-msg">Sin entradas registradas</p>{% endfor %}
+            </div>
+
+            <div class="card production-card">
+                <h4 class="card-header fondo">🍲 Fondos</h4>
+                {% for p, c in fondos %}
+                    <div class="item-resumen"><span>{{ p }}</span> <strong>{{ c }}</strong></div>
+                {% else %}<p class="empty-msg">Sin fondos registrados</p>{% endfor %}
+            </div>
+
+            <div class="card production-card">
+                <h4 class="card-header postre">🍰 Postres</h4>
+                {% for p, c in postres %}
+                    <div class="item-resumen"><span>{{ p }}</span> <strong>{{ c }}</strong></div>
+                {% else %}<p class="empty-msg">Sin postres registrados</p>{% endfor %}
+            </div>
         </div>
 
+        <section class="card insumos-section">
+            <h3 style="margin-bottom: 5px; color: #2c3e50;">⚖️ Insumos Totales Requeridos</h3>
+            <p style="font-size: 0.8rem; color: #888; margin-bottom: 20px;">(Cálculo acumulado de la bandeja completa: entrada + fondo + postre)</p>
+            
+            <div class="categorias-grid">
+                {% for categoria, items in ingredientes.items() %}
+                <div class="grupo-categoria">
+                    <h5 class="cat-title">{{ categoria }}</h5>
+                    <div class="lista-insumos-limpia">
+                        {% for ing, datos in items.items() %}
+                        <div class="insumo-fila">
+                            <span class="ing-name">{{ ing }}</span>
+                            <span class="ing-val-badge">
+                                {# FIX MAESTRO: Detectamos si el dato es un número o un objeto #}
+                                {% if datos is number %}
+                                    {{ "%.2f"|format(datos|float) }} kg/lt
+                                {% elif datos.cantidad is defined %}
+                                    {{ "%.2f"|format(datos.cantidad|float) }} {{ datos.unidad }}
+                                {% else %}
+                                    {{ "%.2f"|format(datos|float) }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="empty-msg">Realiza reservas para calcular insumos.</p>
+                {% endfor %}
+            </div>
+        </section>
+
         <section class="card">
-            <h3>📋 Lista de Reservas ({{ fecha_ver }})</h3>
+            <h3>📋 Lista de Entrega Detallada</h3>
             <table class="tabla-cocina">
                 <thead>
                     <tr>
-                        <th>Funcionario</th>
-                        <th>Bandeja</th>
-                        <th class="text-center">Estado de Retiro</th>
+                        <th style="width: 25%;">Funcionario</th>
+                        <th style="width: 50%;">Bandeja</th>
+                        <th style="width: 25%;" class="text-center">Estado</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in reservas %}
+                    {% set f_idx = loop.index0 %}
                     <tr>
-                        <td>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</td>
+                        <td class="user-cell">
+                            <strong>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</strong><br>
+                            <small class="text-muted">{{ r.usuario.rut }}</small>
+                        </td>
                         <td>
-                            {% set n_bandeja = r.id_jornada % 3 %}
-                            {% set indices = {0: 1, 1: 4, 2: 7} %}
-                            {{ r.jornada.menu_dia.detalles[indices[n_bandeja]].plato.nombre }}
+                            <div class="ticket-bandeja">
+                                {% for d in r.jornada.menu_dia.detalles %}
+                                    {% if d.orden == 1 %}
+                                        <div class="t-item">🥗 {{ d.plato.nombre }}</div>
+                                    {% endif %}
+                                    
+                                    {% if d.orden == (f_idx % 3) + 2 %}
+                                        <div class="t-item t-fondo">🍲 FONDO: {{ d.plato.nombre }}</div>
+                                    {% endif %}
+
+                                    {% if d.orden == 5 %}
+                                        <div class="t-item">🍰 {{ d.plato.nombre }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
                         </td>
                         <td class="text-center">
-                            {% if modo == 'manana' %}
-                                <span class="status-badge confirmada">🕒 PENDIENTE (MAÑANA)</span>
-                            {% else %}
-                                {% set ahora = datetime.now() %}
-                                {% set limite = datetime.combine(r.jornada.menu_dia.fecha, datetime.strptime("15:00", "%H:%M").time()) %}
-                                
-                                {% if r.estado == 'consumida' %}
-                                    <span class="status-badge consumida">✅ RETIRADA</span>
-                                {% elif ahora > limite and r.estado == 'confirmada' %}
-                                    <span class="status-badge no_retirada">🚫 INCUMPLIMIENTO</span>
-                                {% else %}
-                                    <span class="status-badge confirmada">🕒 PENDIENTE</span>
-                                {% endif %}
-                            {% endif %}
+                            <span class="badge {{ 'badge-success' if r.estado == 'consumida' else 'badge-wait' }}">
+                                {{ 'RETIRADO' if r.estado == 'consumida' else 'PENDIENTE' }}
+                            </span>
                         </td>
                     </tr>
                     {% endfor %}
