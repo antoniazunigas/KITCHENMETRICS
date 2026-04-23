@@ -36,7 +36,6 @@
                     <thead>
                         <tr>
                             <th>Detalle del Menú</th>
-                            <th>Régimen</th>
                             <th class="text-center">Acción</th>
                         </tr>
                     </thead>
@@ -47,40 +46,39 @@
                             <tr>
                                 <td>
                                     <strong>🍱 Opción {{ num_opcion }}</strong><br>
-                                    <div style="margin-top: 5px; line-height: 1.4;">
+                                    <div style="margin-top: 8px; line-height: 1.6;">
                                         {% if jornada.menu_dia and jornada.menu_dia.detalles %}
                                             {% for d in jornada.menu_dia.detalles %}
-                                                {# Muestra la Entrada #}
+                                                
+                                                {# Entrada #}
                                                 {% if d.orden == 1 %}
-                                                    <small style="color: #666;">🥗 {{ d.plato.nombre }}</small><br>
+                                                    <small style="color: #666; display: block;">🥗 {{ d.plato.nombre }}</small>
                                                 {% endif %}
                                                 
-                                                {# Muestra el Fondo #}
+                                                {# Fondo con Etiqueta Integrada #}
                                                 {% if d.orden > 1 and d.orden < 5 %}
-                                                    <span style="color: #2c3e50;"><strong>🍲 {{ d.plato.nombre }}</strong></span><br>
+                                                    <div style="display: flex; align-items: center; gap: 10px; margin: 4px 0;">
+                                                        <span style="color: #2c3e50; font-size: 1.1rem;"><strong>🍲 {{ d.plato.nombre }}</strong></span>
+                                                        
+                                                        {# Lógica de etiqueta (solo una vez) #}
+                                                        {% if d.id_plato == 7 or d.id_plato == 9 or 'vegano' in d.plato.nombre.lower() %}
+                                                            <span style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #d4edda; color: #155724;">VEGANO</span>
+                                                        {% else %}
+                                                            <span style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #e8f4fd; color: #2980b9;">NORMAL</span>
+                                                        {% endif %}
+                                                    </div>
                                                 {% endif %}
 
-                                                {# Muestra el Postre #}
+                                                {# Postre #}
                                                 {% if d.orden == 5 %}
-                                                    <small style="color: #666;">🍰 {{ d.plato.nombre }}</small>
+                                                    <small style="color: #666; display: block;">🍰 {{ d.plato.nombre }}</small>
                                                 {% endif %}
+
                                             {% endfor %}
                                         {% endif %}
                                     </div>
                                 </td>
-                                <td>
-                                    {# LÓGICA FIJA POR POSICIÓN: OPCIÓN 1 Y 2 SON VEGANAS, EL RESTO NORMAL #}
-                                    {% if num_opcion == 1 or num_opcion == 2 %}
-                                        <span class="tag-dieta" style="padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; background: #d4edda; color: #155724;">
-                                            VEGANO
-                                        </span>
-                                    {% else %}
-                                        <span class="tag-dieta" style="padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; background: #e8f4fd; color: #2980b9;">
-                                            NORMAL
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
+                                <td class="text-center" style="vertical-align: middle;">
                                     <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
                                         <button type="submit" class="btn-action" 
                                             {% if reserva_activa or jornada.raciones_disponibles == 0 %}
@@ -93,39 +91,47 @@
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="3" style="text-align:center; padding: 20px; color: #7f8c8d;">No hay jornadas disponibles para mañana.</td></tr>
+                            <tr><td colspan="2" style="text-align:center; padding: 20px; color: #7f8c8d;">No hay jornadas disponibles para mañana.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <div class="card card-asistencia" style="margin-top: 20px; text-align: center; padding: 20px; border-radius: 15px;">
-            <h3>Mi Estado de Asistencia</h3>
-            <span style="color: {% if faltas == 0 %}#27ae60{% elif faltas < 3 %}#f39c12{% else %}#e74c3c{% endif %}; font-size: 3.5rem; font-weight: bold; display: block;">
-                {{ faltas }}
-            </span>
-            <p>Faltas Acumuladas</p>
+        <div class="card card-asistencia">
+            <div class="asistencia-info">
+                <h3>Mi Estado de Asistencia</h3>
+                <p>Tu compromiso con el servicio de alimentación.</p>
+            </div>
             
-            <div style="margin-top: 10px; padding: 15px; border-radius: 10px; background: #f8f9fa; border: 1px solid #eee;">
-                {% if faltas == 0 %}
-                    <p style="color: #27ae60;">🌟 <strong>¡Excelente compromiso!</strong> Sigue así.</p>
-                {% elif faltas < 3 %}
-                    <p style="color: #f39c12;">👍 <strong>Vas bien.</strong> Recuerda avisar si no puedes asistir.</p>
-                {% else %}
-                    <p style="color: #e74c3c;">🚨 <strong>¡Cuidado!</strong> Has acumulado varias faltas.</p>
-                {% endif %}
+            <div class="badge-contenedor">
+                <span class="badge-label">Faltas Acumuladas</span>
+                <span class="badge-numero" style="color: {% if faltas == 0 %}#27ae60{% elif faltas < 3 %}#f39c12{% else %}#e74c3c{% endif %};">
+                    {{ faltas }}
+                </span>
+                <div class="badge-mensaje">
+                    {% if faltas == 0 %}
+                        <p style="color: #27ae60;">🌟 ¡Excelente compromiso!</p>
+                    {% elif faltas < 3 %}
+                        <p style="color: #f39c12;">👍 Vas bien. Recuerda avisar.</p>
+                    {% else %}
+                        <p style="color: #e74c3c;">🚨 ¡Cuidado! Revisa tus faltas.</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
         {% if reserva_activa %}
-        <div class="card card-exito" style="border-left: 10px solid #27ae60; background-color: #f0fff4; margin-top: 20px; padding: 20px;">
-            <h3>✅ Tienes una reserva activa</h3>
-            <form id="form-retirar" action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST" onsubmit="return solicitarPasswordRetiro()">
-                <button type="submit" style="background: #27ae60; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%;">
-                    MARCAR COMO RETIRADO
-                </button>
-            </form>
+        <div class="card card-exito">
+            <div class="exito-contenido">
+                <h3>✅ Tienes una reserva activa</h3>
+                <p>Preséntate en el casino en el horario correspondiente.</p>
+                <form id="form-retirar" action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST" onsubmit="return solicitarPasswordRetiro()">
+                    <button type="submit" class="btn-retirado">
+                        MARCAR COMO RETIRADO
+                    </button>
+                </form>
+            </div>
         </div>
         {% endif %}
     </main>
