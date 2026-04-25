@@ -297,6 +297,14 @@
             >
               Eliminar
             </button>
+
+            {% if u.estado == 'bloqueado' %}
+            <form method="POST" action="{{ url_for('admin_usuario_desbloquear', id_usuario=u.id_usuario) }}">
+              <button type="submit" class="btn btn-sm btn-outline-warning w-100">
+                Desbloquear
+              </button>
+            </form>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -389,7 +397,6 @@
 <div class="modal fade" id="deleteUserModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-
       <form method="POST" id="deleteUserForm">
         <div class="modal-header">
           <h5 class="modal-title text-danger">Confirmar eliminación</h5>
@@ -415,7 +422,6 @@
           </button>
         </div>
       </form>
-
     </div>
   </div>
 </div>
