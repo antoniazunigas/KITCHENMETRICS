@@ -55,7 +55,10 @@
             <header class="topbar">
                 <h2>Dashboard Ejecutivo</h2>
                 <div class="top-actions">
-                    <a href="#" class="btn btn-success">Exportar Excel</a>
+                    <a href="{{ url_for('admin_dashboard_exportar_csv', period=period) }}"
+   class="btn btn-sm btn-outline-success">
+  Exportar CSV
+</a>
                 </div>
             </header>
 

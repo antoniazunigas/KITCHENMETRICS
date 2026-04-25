@@ -7,6 +7,10 @@ from functools import wraps
 from flask_migrate import Migrate
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
+from flask import Response, request
+import csv
+import io
+
 
 import services.dashboard_service as dashboard_service
 
@@ -349,6 +353,87 @@ def admin_usuario_desbloquear(id_usuario):
     try: usuario.estado="activo"; db.session.commit(); flash("Usuario desbloqueado correctamente.","success")
     except Exception: db.session.rollback(); flash("Ocurrió un error al desbloquear el usuario.","danger")
     return redirect(request.referrer or url_for('admin_dashboard_principal'))
+
+
+# REPORTEES CSV PARA DESCARGA DESDE DASHBOARD
+@app.route('/admin/dashboard/exportar-csv')
+@login_required(role='admin')
+def admin_dashboard_exportar_csv():
+    period = request.args.get('period', 'week')
+    today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
+
+    rows = db.session.execute(
+        db.text("""
+            SELECT
+                fecha,
+                tipo_reporte,
+                total_reservas,
+                total_consumidas,
+                total_no_retiradas,
+                total_canceladas,
+                tasa_faltas,
+                total_ingredientes_lote,
+                total_stock_disponible,
+                total_merma_ingrediente,
+                total_merma_preparada,
+                costo_total_perdido,
+                actualizado_en
+            FROM reporte_operativo
+            WHERE fecha BETWEEN :start_date AND :today
+            ORDER BY fecha ASC, tipo_reporte ASC
+        """),
+        {"start_date": start_date, "today": today}
+    ).mappings().all()
+
+    output = io.StringIO()
+    output.write('\ufeff')  # ayuda a Excel con acentos
+
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow([
+        'fecha',
+        'tipo_reporte',
+        'total_reservas',
+        'total_consumidas',
+        'total_no_retiradas',
+        'total_canceladas',
+        'tasa_faltas',
+        'total_ingredientes_lote',
+        'total_stock_disponible',
+        'total_merma_ingrediente',
+        'total_merma_preparada',
+        'costo_total_perdido',
+        'actualizado_en'
+    ])
+
+    for row in rows:
+        writer.writerow([
+            row['fecha'],
+            row['tipo_reporte'],
+            row['total_reservas'],
+            row['total_consumidas'],
+            row['total_no_retiradas'],
+            row['total_canceladas'],
+            row['tasa_faltas'],
+            row['total_ingredientes_lote'],
+            row['total_stock_disponible'],
+            row['total_merma_ingrediente'],
+            row['total_merma_preparada'],
+            row['costo_total_perdido'],
+            row['actualizado_en']
+        ])
+
+    csv_data = output.getvalue()
+    output.close()
+
+    filename = f"reporte_operativo_{period}_{today.isoformat()}.csv"
+
+    return Response(
+        csv_data,
+        mimetype='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': f'attachment; filename={filename}'
+        }
+    )
 
 
 
