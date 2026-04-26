@@ -26,7 +26,8 @@ DELETE FROM reporte_operativo;
 INSERT INTO rol (id_rol, nombre) VALUES
 (1, 'admin'),
 (2, 'cocina'),
-(3, 'funcionario');
+(3, 'funcionario'),
+(4, 'jefe_cocina');
 
 -- =========================================================
 -- 3. USUARIOS BASE
@@ -35,8 +36,8 @@ INSERT INTO usuario
 (id_usuario, id_rol, rut, nombre, apellido, email, contrasena, faltas_acumuladas, estado) VALUES
 (1, 1, '184562346', 'Ana', 'Rojas', 'ana.rojas@hospital.cl', '1234', 0, 'activo'),
 (2, 2, '227749806', 'Luis', 'Pérez', 'luis.perez@hospital.cl', '1234', 0, 'activo'),
-(3, 2, '205577648', 'Marta', 'Gómez', 'marta.gomez@hospital.cl', '1234', 0, 'activo'),
-(4, 3, '89905467',  'Carlos', 'Díaz', 'carlos.diaz@hospital.cl', '1234', 0, 'activo'),
+(3, 3, '205577648', 'Marta', 'Gómez', 'marta.gomez@hospital.cl', '1234', 0, 'activo'),
+(4, 4, '89905467',  'Carlos', 'Díaz', 'carlos.diaz@hospital.cl', '1234', 0, 'activo'),
 (5, 2, '123360094', 'Sofía', 'Mora', 'sofia.mora@hospital.cl', '1234', 0, 'activo'),
 (6, 1, '186634568', 'Pedro', 'Luna', 'pedro.luna@hospital.cl', '1234', 0, 'activo'),
 (7, 3, '130078975', 'Elena', 'Vega', 'elena.vega@hospital.cl', '1234', 0, 'activo'),

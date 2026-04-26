@@ -207,7 +207,7 @@ def login():
         session['user_id'] = user.id_usuario
         session['user_rol'] = user.rol.nombre.lower()
         session['user_nombre'] = user.nombre
-        destinos = {'admin': 'admin_dashboard_principal', 'cocina': 'panel_cocina', 'funcionario': 'panel_funcionario'}
+        destinos = {'admin': 'admin_dashboard_principal', 'jefe_cocina': 'panel_jefe_cocina', 'funcionario': 'panel_funcionario'}
         return redirect(url_for(destinos.get(session['user_rol'], 'index')))
     flash("Credenciales incorrectas.", "danger")
     return redirect(url_for('index'))
@@ -558,6 +558,39 @@ def panel_cocina():
         modo=modo,
         datetime=datetime
     )
+
+
+@app.route('/jefe_cocina/dashboard')
+@login_required(role='jefe_cocina')
+def panel_jefe_cocina():
+    period = request.args.get('period', 'week')
+    today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
+    current_reservas = dashboard_service._reservas_base(start_date, today)
+    previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
+    kpis = dashboard_service.calculate_dashboard_kpis(start_date, today, prev_start, prev_end, current_reservas, previous_reservas)
+    listas = dashboard_service.get_dashboard_lists(start_date, today, current_reservas)
+    charts = dashboard_service.generate_dashboard_charts(start_date, today)
+    waste = dashboard_service.get_waste_context(start_date, today)
+
+    # Para planificación: dict fecha_iso -> {id_menu, estado, detalles, jornada}
+    menus = MenuDia.query.filter(MenuDia.fecha >= today).order_by(MenuDia.fecha).all()
+    menus_por_fecha = {str(m.fecha): {'id_menu': m.id_menu, 'estado': m.estado,
+        'detalles': [{'orden': d.orden, 'id_plato': d.id_plato} for d in m.detalles],
+        'jornada': {'raciones_planificadas': m.jornadas[0].raciones_planificadas if m.jornadas else 100}} for m in menus}
+    platos_list = [{'id_plato': p.id_plato, 'nombre': p.nombre, 'tipo_plato': p.tipo_plato, 'tipo_dieta': p.tipo_dieta} for p in Plato.query.all()]
+
+    # Para mermas: dict fecha_iso -> {count}
+    from sqlalchemy import func
+    rows = db.session.query(MermaIngrediente.fecha, func.count()).group_by(MermaIngrediente.fecha).filter(MermaIngrediente.fecha >= start_date).all()
+    mermas_por_fecha = {str(r[0]): {'count': r[1]} for r in rows}
+
+    return render_template('jefe_cocina.html',
+        nombre=session.get('user_nombre'), period=period, period_label=period_label,
+        start_date_str=start_date.strftime('%Y-%m-%d'), today_str=today.strftime('%Y-%m-%d'),
+        current_year=today.year, menus_por_fecha=menus_por_fecha, platos_list=platos_list,
+        mermas_por_fecha=mermas_por_fecha, lotes_list=LoteIngrediente.query.all(),
+        jornadas_list=JornadaCocina.query.order_by(JornadaCocina.id_jornada.desc()).limit(30).all(),
+        **kpis, **listas, **charts, **waste)
 
 
 if __name__ == '__main__':

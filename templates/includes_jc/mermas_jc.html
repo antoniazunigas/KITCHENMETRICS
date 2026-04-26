@@ -1,0 +1,442 @@
+<!-- ============================================================
+     MERMAS JC — Calendario mes anterior + registro de mermas
+     Requiere desde la ruta: lotes_list, mermas_por_fecha (dict),
+     jornadas_por_fecha (dict), ingredientes_list
+     ============================================================ -->
+
+<div class="d-flex flex-column gap-3">
+
+  <!-- Encabezado -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <div>
+        <h4 class="mb-1 fw-bold">⚠️ Registro de Mermas</h4>
+        <div class="text-muted small">Registra mermas de ingredientes y platos no consumidos. Los últimos 30 días desde hoy.</div>
+      </div>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <span class="d-flex align-items-center gap-1"><span class="legend-dot-m" style="background:#dc3545;"></span><small>Con mermas</small></span>
+        <span class="d-flex align-items-center gap-1"><span class="legend-dot-m" style="background:#e67e22;"></span><small>Hoy</small></span>
+        <span class="d-flex align-items-center gap-1"><span class="legend-dot-m" style="background:#dee2e6;"></span><small>Sin mermas</small></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs mermas período -->
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">Registros Mes</div>
+        <div class="kpi-value text-danger">{{ mermas_recientes|length }}</div>
+        <div class="small text-muted">Últimos 30 días</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">Costo Perdido</div>
+        <div class="kpi-value text-danger">${{ '{:,.0f}'.format(total_merma_cost|default(0)|float) }}</div>
+        <div class="small text-muted">Período actual</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">% Desperdicio</div>
+        <div class="kpi-value text-warning">{{ actual|default(0.0)|float }}%</div>
+        <div class="small text-muted">Del total producido</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">Promedio Diario</div>
+        <div class="kpi-value">{{ promedio_merma_diaria|default(0.0)|round(3) }}</div>
+        <div class="small text-muted">kg/lt merma/día</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botón rápido registro hoy -->
+  <div class="card p-3 d-flex flex-md-row align-items-center justify-content-between gap-3">
+    <div>
+      <h6 class="mb-1 fw-bold">📝 Registro rápido</h6>
+      <div class="text-muted small">Registra merma de ingredientes o platos no consumidos para hoy u otro día del calendario.</div>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-danger btn-sm" onclick="openMermaModal('hoy', 'ingrediente')">
+        🧪 Merma de Ingrediente – Hoy
+      </button>
+      <button class="btn btn-outline-warning btn-sm" onclick="openMermaModal('hoy', 'plato')">
+        🍲 Platos No Consumidos – Hoy
+      </button>
+    </div>
+  </div>
+
+  <!-- Calendario mes anterior -->
+  <div class="card p-3">
+    <h5 class="mb-3">📆 Calendario — Últimos 30 días</h5>
+    <div id="jc-mermas-calendar"></div>
+  </div>
+
+  <!-- Tabla mermas recientes -->
+  <div class="card p-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="mb-0">📋 Historial de Mermas</h5>
+      <button id="toggleMermasJCBtn" class="btn btn-outline-secondary btn-sm"
+        {% if mermas_recientes|length <= 10 %}style="display:none;"{% endif %}>
+        Mostrar más
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle table-hover">
+        <thead>
+          <tr><th>Fecha</th><th>Ingrediente</th><th>Lote</th><th>Motivo</th><th class="text-end">Cantidad</th><th class="text-end">Costo</th></tr>
+        </thead>
+        <tbody id="mermasJCBody">
+          {% for m in mermas_recientes %}
+          <tr class="merma-jc-row {% if loop.index > 10 %}d-none{% endif %}">
+            <td>{{ m.fecha.strftime('%d-%m-%Y') if m.fecha else '' }}</td>
+            <td>{{ m.lote.ingrediente.nombre if m.lote and m.lote.ingrediente else 'N/A' }}</td>
+            <td>Lote {{ m.id_lote }}</td>
+            <td><span class="badge bg-secondary">{{ m.motivo }}</span></td>
+            <td class="text-end">{{ m.cantidad|round(3) }}</td>
+            <td class="text-end">${{ '{:,.0f}'.format(m.costo_perdido) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-3">No hay registros de merma en este período</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="text-center small text-muted mt-1">
+      Mostrando <strong id="shownMermasJC">{{ [10, mermas_recientes|length]|min }}</strong> de <strong>{{ mermas_recientes|length }}</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL: Registrar merma de INGREDIENTE
+════════════════════════════════════════════ -->
+<div class="modal fade" id="mermaIngModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#dc3545; color:#fff;">
+        <h5 class="modal-title">🧪 Registrar Merma de Ingrediente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Fecha</label>
+            <input type="date" id="mi-fecha" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Lote</label>
+            <select id="mi-lote" class="form-select form-select-sm">
+              <option value="">— Seleccionar lote —</option>
+              {% for lote in lotes_list|default([]) %}
+              <option value="{{ lote.id_lote }}" data-costo="{{ lote.costo_unitario }}">
+                Lote {{ lote.id_lote }} – {{ lote.ingrediente.nombre if lote.ingrediente else '' }}
+                ({{ lote.cantidad_disponible }} disp.)
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Cantidad (kg/lt/un)</label>
+            <input type="number" id="mi-cantidad" class="form-control form-control-sm" min="0.001" step="0.001" placeholder="0.000">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Costo Perdido ($)</label>
+            <input type="number" id="mi-costo" class="form-control form-control-sm" min="0" step="1" placeholder="Se calcula automático">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Motivo</label>
+            <select id="mi-motivo" class="form-select form-select-sm">
+              <option value="vencimiento">Vencimiento</option>
+              <option value="deterioro">Deterioro</option>
+              <option value="sobrante">Sobrante</option>
+              <option value="accidente">Accidente</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <div id="mi-alert" class="alert mt-3 d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger btn-sm" id="mi-save-btn">💾 Registrar Merma</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL: Registrar PLATOS no consumidos
+════════════════════════════════════════════ -->
+<div class="modal fade" id="mermaPlModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#e67e22; color:#fff;">
+        <h5 class="modal-title">🍲 Registrar Platos No Consumidos</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Fecha</label>
+            <input type="date" id="mp-fecha" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Jornada (opcional)</label>
+            <select id="mp-jornada" class="form-select form-select-sm">
+              <option value="">— Seleccionar jornada —</option>
+              {% for j in jornadas_list|default([]) %}
+              <option value="{{ j.id_jornada }}">
+                Jornada {{ j.id_jornada }} – {{ j.menu_dia.fecha if j.menu_dia else '?' }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Raciones No Consumidas</label>
+            <input type="number" id="mp-cantidad" class="form-control form-control-sm" min="1" step="1" placeholder="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Costo Perdido ($)</label>
+            <input type="number" id="mp-costo" class="form-control form-control-sm" min="0" step="1" placeholder="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Motivo</label>
+            <select id="mp-motivo" class="form-select form-select-sm">
+              <option value="sobrante">Sobrante de producción</option>
+              <option value="no_retirado">No retirado por funcionarios</option>
+              <option value="cancelacion">Cancelación tardía</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <div id="mp-alert" class="alert mt-3 d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-warning btn-sm" id="mp-save-btn">💾 Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     ESTILOS + JS
+════════════════════════════════════════════ -->
+<style>
+.legend-dot-m { display:inline-block; width:12px; height:12px; border-radius:50%; }
+.cal-mermas-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+.cal-m-header {
+    text-align:center; font-weight:700; font-size:.75rem;
+    color:#6c757d; padding:4px 0; text-transform:uppercase;
+}
+.cal-m-day {
+    min-height:60px; border-radius:8px; padding:6px;
+    cursor:pointer; border:2px solid transparent;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+    background:#f8f9fa; position:relative; user-select:none;
+}
+.cal-m-day:hover { transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.12); border-color:#dc3545; }
+.cal-m-day.has-merma { background:#fde8e8; }
+.cal-m-day.is-today  { border-color:#e67e22 !important; background:#fff3cd; }
+.cal-m-day.is-future { opacity:.4; cursor:default; }
+.cal-m-day.is-future:hover { transform:none; box-shadow:none; border-color:transparent; }
+.cal-m-day.empty     { background:transparent; cursor:default; border:none; }
+.cal-m-day.empty:hover { transform:none; box-shadow:none; }
+.cal-m-num  { font-weight:700; font-size:.88rem; color:#2c3e50; }
+.cal-m-day.has-merma .cal-m-num { color:#721c24; }
+.cal-m-label { font-size:.65rem; color:#888; margin-top:3px; }
+.cal-m-dot {
+    width:7px; height:7px; border-radius:50%;
+    background:#dc3545; position:absolute; bottom:6px; right:6px;
+}
+</style>
+
+<script>
+(function () {
+    const mermasPorFecha = {{ mermas_por_fecha | tojson | default('{}') }};
+    const modalIng  = new bootstrap.Modal(document.getElementById('mermaIngModal'));
+    const modalPlat = new bootstrap.Modal(document.getElementById('mermaPlModal'));
+
+    /* ── Render calendar (last 30 days) ── */
+    function renderMermasCalendar() {
+        const container = document.getElementById('jc-mermas-calendar');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const DAYS   = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+        // We'll show current month + previous month (to cover 30 days)
+        const months = [];
+        let cur = new Date(today.getFullYear(), today.getMonth(), 1);
+        months.push(new Date(cur));
+        cur.setMonth(cur.getMonth() - 1);
+        months.push(new Date(cur));
+        months.reverse();
+
+        function pad(n) { return String(n).padStart(2,'0'); }
+        function toIso(dt) { return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`; }
+
+        months.forEach(monthStart => {
+            const yr  = monthStart.getFullYear();
+            const mo  = monthStart.getMonth();
+            const title = document.createElement('h6');
+            title.className = 'fw-bold mb-2 mt-3';
+            title.textContent = `${MONTHS[mo]} ${yr}`;
+            container.appendChild(title);
+
+            const grid = document.createElement('div');
+            grid.className = 'cal-mermas-grid';
+
+            DAYS.forEach(d => {
+                const h = document.createElement('div');
+                h.className = 'cal-m-header'; h.textContent = d;
+                grid.appendChild(h);
+            });
+
+            const firstDay = new Date(yr, mo, 1).getDay();
+            const offset   = (firstDay + 6) % 7;
+            for (let i = 0; i < offset; i++) {
+                const b = document.createElement('div'); b.className = 'cal-m-day empty'; grid.appendChild(b);
+            }
+
+            const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dt   = new Date(yr, mo, d); dt.setHours(0,0,0,0);
+                const iso  = toIso(dt);
+                const cell = document.createElement('div');
+                const isTd = dt.getTime() === today.getTime();
+                const isFt = dt > today;
+                const hasMr= !!mermasPorFecha[iso];
+
+                cell.className = 'cal-m-day' + (hasMr?' has-merma':'') + (isTd?' is-today':'') + (isFt?' is-future':'');
+                cell.innerHTML = `<div class="cal-m-num">${d}</div>`;
+                if (hasMr) {
+                    const cnt = mermasPorFecha[iso].count || '';
+                    cell.innerHTML += `<div class="cal-m-label">${cnt} merma${cnt!==1?'s':''}</div><div class="cal-m-dot"></div>`;
+                } else if (!isFt) {
+                    cell.innerHTML += `<div class="cal-m-label" style="color:#ccc;">OK</div>`;
+                }
+
+                if (!isFt) {
+                    cell.addEventListener('click', () => { openDayMermaOptions(iso, isTd); });
+                }
+                grid.appendChild(cell);
+            }
+            container.appendChild(grid);
+        });
+    }
+
+    /* ── Day click → show quick actions via small inline menu ── */
+    function openDayMermaOptions(iso, isToday) {
+        // Set dates on modals
+        document.getElementById('mi-fecha').value = iso;
+        document.getElementById('mp-fecha').value = iso;
+        // Use a simple confirm to pick type
+        const choice = window.confirm(`Día: ${iso}\n\n¿Registrar merma de INGREDIENTE?\nPresiona OK para ingrediente, Cancelar para platos no consumidos.`);
+        if (choice) {
+            modalIng.show();
+        } else {
+            modalPlat.show();
+        }
+    }
+
+    /* ── Global helper called from buttons ── */
+    window.openMermaModal = function(dia, tipo) {
+        const hoy = new Date();
+        const iso = dia === 'hoy'
+            ? `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`
+            : dia;
+        document.getElementById('mi-fecha').value = iso;
+        document.getElementById('mp-fecha').value = iso;
+        if (tipo === 'ingrediente') modalIng.show();
+        else modalPlat.show();
+    };
+
+    /* ── Auto-calculate cost on lote + cantidad change ── */
+    function recalcCost() {
+        const sel   = document.getElementById('mi-lote');
+        const qty   = parseFloat(document.getElementById('mi-cantidad').value) || 0;
+        const costo = parseFloat(sel.options[sel.selectedIndex]?.dataset.costo) || 0;
+        if (costo && qty) document.getElementById('mi-costo').value = Math.round(qty * costo);
+    }
+    document.getElementById('mi-lote')?.addEventListener('change', recalcCost);
+    document.getElementById('mi-cantidad')?.addEventListener('input', recalcCost);
+
+    /* ── Save ingrediente merma ── */
+    document.getElementById('mi-save-btn')?.addEventListener('click', async () => {
+        const payload = {
+            fecha:         document.getElementById('mi-fecha').value,
+            id_lote:       parseInt(document.getElementById('mi-lote').value),
+            cantidad:      parseFloat(document.getElementById('mi-cantidad').value),
+            costo_perdido: parseFloat(document.getElementById('mi-costo').value) || 0,
+            motivo:        document.getElementById('mi-motivo').value,
+        };
+        if (!payload.id_lote || !payload.cantidad) { showA('mi-alert','warning','⚠️ Completa todos los campos obligatorios.'); return; }
+        try {
+            const res  = await fetch('/jc/merma/ingrediente/registrar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (data.success) {
+                mermasPorFecha[payload.fecha] = { count: (mermasPorFecha[payload.fecha]?.count || 0) + 1 };
+                showA('mi-alert','success','✅ Merma registrada correctamente.');
+                setTimeout(() => { modalIng.hide(); renderMermasCalendar(); }, 700);
+            } else { showA('mi-alert','danger','❌ ' + (data.error || 'Error')); }
+        } catch { showA('mi-alert','danger','❌ Error de conexión.'); }
+    });
+
+    /* ── Save plato merma ── */
+    document.getElementById('mp-save-btn')?.addEventListener('click', async () => {
+        const payload = {
+            fecha:            document.getElementById('mp-fecha').value,
+            id_jornada:       parseInt(document.getElementById('mp-jornada').value) || null,
+            cantidad_raciones:parseInt(document.getElementById('mp-cantidad').value) || 0,
+            costo_perdido:    parseFloat(document.getElementById('mp-costo').value) || 0,
+            motivo:           document.getElementById('mp-motivo').value,
+        };
+        if (!payload.cantidad_raciones) { showA('mp-alert','warning','⚠️ Indica la cantidad de raciones.'); return; }
+        try {
+            const res  = await fetch('/jc/merma/plato/registrar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (data.success) {
+                showA('mp-alert','success','✅ Merma de platos registrada.');
+                setTimeout(() => modalPlat.hide(), 700);
+            } else { showA('mp-alert','danger','❌ ' + (data.error || 'Error')); }
+        } catch { showA('mp-alert','danger','❌ Error de conexión.'); }
+    });
+
+    function showA(id, type, msg) {
+        const el = document.getElementById(id);
+        el.className = `alert alert-${type} mt-3`;
+        el.textContent = msg;
+        el.classList.remove('d-none');
+    }
+
+    /* ── Toggle historial ── */
+    const toggleBtn = document.getElementById('toggleMermasJCBtn');
+    const rows      = Array.from(document.querySelectorAll('.merma-jc-row'));
+    const shownEl   = document.getElementById('shownMermasJC');
+    let expanded    = false;
+
+    toggleBtn?.addEventListener('click', () => {
+        expanded = !expanded;
+        toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
+        let shown = 0;
+        rows.forEach((r, i) => { const v = expanded || i < 10; r.classList.toggle('d-none', !v); if(v) shown++; });
+        if (shownEl) shownEl.textContent = shown;
+    });
+
+    /* ── Init ── */
+    renderMermasCalendar();
+    document.getElementById('content-mermas')?.addEventListener('pane:shown', renderMermasCalendar, { once: false });
+})();
+</script>

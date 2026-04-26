@@ -1,0 +1,146 @@
+{% set total_reservas     = total_reservas|default(0) %}
+{% set tasa_consumo       = tasa_consumo|default(0.0)|float %}
+{% set actual             = actual|default(0.0)|float %}
+{% set meta               = meta|default(15.0)|float %}
+{% set total_merma_cost   = total_merma_cost|default(0.0)|float %}
+{% set progress_percent   = progress_percent|default(0.0)|float %}
+
+<div class="d-flex flex-column gap-3">
+
+  <!-- Encabezado -->
+  <div class="card p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <div>
+        <h4 class="mb-1 fw-bold">📊 Resumen Operativo</h4>
+        <div class="text-muted small">Vista consolidada del servicio de cocina — período: {{ period_label|default('Última semana') }}</div>
+      </div>
+      <div class="btn-group btn-group-sm" role="group">
+        <a href="{{ url_for('panel_jefe_cocina', period='week')    }}" class="btn btn-outline-warning {% if period == 'week'    %}active{% endif %}">Semana</a>
+        <a href="{{ url_for('panel_jefe_cocina', period='month')   }}" class="btn btn-outline-warning {% if period == 'month'   %}active{% endif %}">Mes</a>
+        <a href="{{ url_for('panel_jefe_cocina', period='6months') }}" class="btn btn-outline-warning {% if period == '6months' %}active{% endif %}">6 Meses</a>
+        <a href="{{ url_for('panel_jefe_cocina', period='year')    }}" class="btn btn-outline-warning {% if period == 'year'    %}active{% endif %}">Año</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">Total Reservas</div>
+        <div class="kpi-value">{{ total_reservas }}</div>
+        <div class="small text-muted">En el período</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">Tasa de Consumo</div>
+        <div class="kpi-value positive">{{ tasa_consumo }}%</div>
+        <div class="small text-muted">Raciones retiradas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">% Desperdicio</div>
+        <div class="kpi-value text-danger">{{ actual }}%</div>
+        <div class="small text-muted">Meta: {{ meta }}%</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card p-3">
+        <div class="kpi-title">Costo Merma</div>
+        <div class="kpi-value text-danger">${{ '{:,.0f}'.format(total_merma_cost) }}</div>
+        <div class="small text-muted">En el período</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progreso hacia meta -->
+  <div class="card p-3">
+    <h5 class="mb-2">🎯 Progreso hacia Meta de Reducción</h5>
+    <div class="small text-muted mb-2">Actual: {{ actual }}% → Meta: {{ meta }}%</div>
+    <div class="progress" style="height:30px; border-radius:999px;">
+      <div class="progress-bar bg-warning" role="progressbar"
+           style="width:{{ progress_percent|round(1) }}%;"
+           aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+        {{ progress_percent|round(1) }}% completado
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card p-3">
+        <h5 class="mb-2">Consumidas vs No consumidas</h5>
+        <div style="position:relative;height:300px;">
+          <canvas id="jc-chart-consumidas"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card p-3">
+        <h5 class="mb-2">Platos Preparados vs No Consumidos</h5>
+        <div style="position:relative;height:300px;">
+          <canvas id="jc-chart-platos"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-12">
+      <div class="card p-3">
+        <h5 class="mb-2">Evolución % Desperdicio vs Meta</h5>
+        <div style="position:relative;height:260px;">
+          <canvas id="jc-chart-merma"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla jornadas -->
+  <div class="card p-3">
+    <h5 class="mb-3">📋 Últimas Jornadas</h5>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle table-hover">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Planificadas</th><th>Preparadas</th><th>Disponibles</th><th>% Efic.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in jornadas %}
+          <tr>
+            <td>{{ j.menu_dia.fecha if j.menu_dia else '–' }}</td>
+            <td>{{ j.raciones_planificadas }}</td>
+            <td>{{ j.raciones_preparadas }}</td>
+            <td>{{ j.raciones_disponibles }}</td>
+            <td>
+              <span class="badge-km">
+                {{ ((j.raciones_preparadas and j.raciones_planificadas) and ((j.raciones_preparadas/j.raciones_planificadas*100)|round(1)) or '0.0') }}%
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted">Sin jornadas en este período</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Alertas lotes próximos -->
+  {% if lots_near %}
+  <div class="card p-3 risk-days-card">
+    <h6 class="text-warning mb-3">⚠️ Lotes de Ingredientes Próximos a Vencer</h6>
+    <div class="d-flex gap-3 flex-wrap">
+      {% for lot in lots_near %}
+      <div class="card p-3 risk-card">
+        <div class="fw-semibold">{{ lot.nombre }}</div>
+        <div class="small text-muted">{{ lot.cantidad }} {{ lot.unidad }}</div>
+        <div class="small text-warning fw-semibold">⚠ {{ lot.days_left }} días</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
