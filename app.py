@@ -11,7 +11,7 @@ from flask import Response, request
 import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from sqlalchemy import text
 
 import services.dashboard_service as dashboard_service
 
@@ -172,6 +172,7 @@ dashboard_service.init_objects(
     JornadaCocina,
     MenuDia,
     MermaIngrediente,
+    MermaPreparada,
     LoteIngrediente,
     Ingrediente,
     Usuario,
@@ -291,17 +292,40 @@ def panel_admin():
 def admin_dashboard_principal():
     period = request.args.get('period', 'week')
     today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
-    current_reservas, previous_reservas = dashboard_service._reservas_base(start_date, today), dashboard_service._reservas_base(prev_start, prev_end)
+    
+    current_reservas = dashboard_service._reservas_base(start_date, today)
+    previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
+    
+    # 1. Obtenemos los KPIs generales
     kpis = dashboard_service.calculate_dashboard_kpis(start_date, today, prev_start, prev_end, current_reservas, previous_reservas)
+    
+    # 2. Obtenemos los datos de mermas (donde incluimos tu tabla de cocina)
+    waste_data = dashboard_service.get_waste_context(start_date, today)
+    
+    # 3. ¡EL TRUCO FINAL!: Borramos la variable duplicada de kpis para que no choque con waste_data
+    kpis.pop('total_merma_cost', None)
+    kpis.pop('percent_desperdicio', None) # También por si acaso
+
     listas, charts = dashboard_service.get_dashboard_lists(start_date, today, current_reservas), dashboard_service.generate_dashboard_charts(start_date, today)
-    extras = {'usuarios_count': Usuario.query.count(),
-              'menus_count': MenuDia.query.filter(MenuDia.fecha.between(start_date, today)).count()}
+    
+    extras = {
+        'usuarios_count': Usuario.query.count(),
+        'menus_count': MenuDia.query.filter(MenuDia.fecha.between(start_date, today)).count()
+    }
+
     return render_template('dashboard.html',
-        nombre=session.get('user_nombre'), period=period, period_label=period_label,
-        start_date_str=start_date.strftime('%Y-%m-%d'), today_str=today.strftime('%Y-%m-%d'),
-        current_year=today.year, **kpis, **listas, **charts, **extras,
+        nombre=session.get('user_nombre'), 
+        period=period, 
+        period_label=period_label,
+        start_date_str=start_date.strftime('%Y-%m-%d'), 
+        today_str=today.strftime('%Y-%m-%d'),
+        current_year=today.year, 
+        **kpis, 
+        **listas, 
+        **charts, 
+        **extras,
         **dashboard_service.get_inventory_context(),
-        **dashboard_service.get_waste_context(start_date, today),
+        **waste_data, # Ahora este entra solito sin pelearse con nadie
         **dashboard_service.get_users_context())
 
 @app.route('/admin/usuario/crear', methods=['POST'])
@@ -501,6 +525,31 @@ def admin_dashboard_exportar_csv():
             'Content-Disposition': f'attachment; filename={filename}'
         }
     )
+
+
+
+
+
+@app.route('/registrar_merma', methods=['POST'])
+def registrar_merma():
+    id_jornada = request.form.get('id_jornada')
+    cantidad_merma = request.form.get('cantidad_merma')
+    if id_jornada and cantidad_merma:
+        try:
+            qty = int(float(cantidad_merma))
+            # Actualizamos la jornada
+            db.session.execute(text("UPDATE jornada_cocina SET raciones_disponibles = raciones_disponibles - :m WHERE id_jornada = :id"), {'m': qty, 'id': id_jornada})
+            # Insertamos en la tabla que lee el dashboard
+            db.session.execute(text("""
+                INSERT INTO merma_preparada (id_jornada, fecha, cantidad_raciones, costo_perdido, motivo) 
+                VALUES (:id, CURRENT_DATE, :qty, :costo, :motivo)
+            """), {'id': id_jornada, 'qty': qty, 'costo': qty * 1500, 'motivo': 'Sobrante de Servicio'})
+            db.session.commit()
+            flash("✅ Merma sincronizada con el Dashboard Admin.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"❌ Error: {str(e)}", "error")
+    return redirect('/cocina?modo=hoy')
 
 
 

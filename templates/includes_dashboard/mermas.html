@@ -1,8 +1,8 @@
 {% set total_merma_qty = total_merma_qty|default(0)|float %}
 {% set total_merma_cost = total_merma_cost|default(0)|float %}
 {% set promedio_merma_diaria = promedio_merma_diaria|default(0)|float %}
-{% set antes = 30.2 %}
-{% set actual = 5.0 %}
+{% set antes = antes|default(0)|float %}
+{% set actual = actual|default(0)|float %}
 {% set meta = meta|default(15.0)|float %}
 {% set ya_reducido = ya_reducido|default(0)|float %}
 {% set progress_percent = progress_percent|default(0)|float %}
@@ -10,7 +10,6 @@
 
 <div class="d-flex flex-column gap-3">
 
-  <!-- Encabezado -->
   <div class="card p-3">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
       <div>
@@ -19,108 +18,94 @@
           Rango seleccionado: {{ start_date_str }} → {{ today_str }} ({{ period_label }})
         </div>
       </div>
-
       <div class="d-flex align-items-center gap-2">
-
-      </div>
+        </div>
     </div>
   </div>
 
-  <!-- KPIs -->
   <div class="row g-3">
     <div class="col-md-3">
       <div class="card p-3 kpi-card">
-        <div class="kpi-title">% Actual Desperdicio</div>
-        <div class="kpi-value text-warning">{{ actual|round(1) }}%</div>
+        <div class="kpi-title text-uppercase small text-muted fw-bold">% Actual Desperdicio</div>
+        <div class="kpi-value text-warning h3 fw-bold">{{ (actual|default(0))|round(1) }}%</div>
         <div class="small text-muted">Del total producido</div>
       </div>
     </div>
 
     <div class="col-md-3">
       <div class="card p-3 kpi-card">
-        <div class="kpi-title">Meta de Desperdicio</div>
-        <div class="kpi-value text-success">{{ meta|round(1) }}%</div>
+        <div class="kpi-title text-uppercase small text-muted fw-bold">Meta de Desperdicio</div>
+        <div class="kpi-value text-success h3 fw-bold">{{ (meta|default(15.0))|round(1) }}%</div>
         <div class="small text-muted">Objetivo de reducción</div>
       </div>
     </div>
 
     <div class="col-md-3">
       <div class="card p-3 kpi-card">
-        <div class="kpi-title">Costo Perdido</div>
-        <div class="kpi-value text-danger">${{ '{:,.0f}'.format(total_merma_cost) }}</div>
+        <div class="kpi-title text-uppercase small text-muted fw-bold">Costo Perdido</div>
+        <div class="kpi-value text-danger h3 fw-bold">${{ '{:,.0f}'.format(total_merma_cost|default(0)) }}</div>
         <div class="small text-muted">En el período</div>
       </div>
     </div>
 
     <div class="col-md-3">
       <div class="card p-3 kpi-card">
-        <div class="kpi-title">Registros de Merma</div>
-        <div class="kpi-value">{{ registros_merma }}</div>
-        <div class="small text-muted">Mermas de ingrediente</div>
+        <div class="kpi-title text-uppercase small text-muted fw-bold">Registros de Merma</div>
+        <div class="kpi-value h3 fw-bold">{{ registros_merma|default(0) }}</div>
+        <div class="small text-muted">Mermas registradas</div>
       </div>
     </div>
   </div>
 
-  <!-- Progreso hacia la meta -->
   <div class="card p-3">
     <div class="d-flex justify-content-between align-items-start mb-3">
       <div>
         <h5 class="mb-1">📊 Progreso hacia la meta</h5>
-        <div class="small text-muted">Antes: {{ antes|round(1) }}% → Actual: {{ actual|round(1) }}%</div>
+        <div class="small text-muted">Antes: {{ (antes|default(0))|round(1) }}% → Actual: {{ (actual|default(0))|round(1) }}%</div>
       </div>
-      <div class="small text-muted">
-        Meta: {{ meta|round(1) }}%
-      </div>
+      <div class="small text-muted">Meta: {{ (meta|default(15.0))|round(1) }}%</div>
     </div>
 
     <div class="progress" style="height: 34px; border-radius: 999px;">
-      <div
-        class="progress-bar bg-success"
-        role="progressbar"
-        style="width: {{ progress_percent|round(1) }}%;"
-        aria-valuenow="{{ progress_percent|round(1) }}"
-        aria-valuemin="0"
-        aria-valuemax="100"
-      >
-        {{ progress_percent|round(1) }}% completado
+      <div class="progress-bar bg-success" role="progressbar" 
+           style="width: {{ (progress_percent|default(0))|round(1) }}%;"
+           aria-valuenow="{{ (progress_percent|default(0))|round(1) }}" aria-valuemin="0" aria-valuemax="100">
+        {{ (progress_percent|default(0))|round(1) }}% completado
       </div>
     </div>
 
     <div class="row mt-4 g-3">
       <div class="col-md-3">
-        <div class="card p-3 status-card status-card-danger">
+        <div class="card p-3 status-card status-card-danger text-center">
           <div class="small text-muted">Antes</div>
-          <div class="h5 text-danger fw-bold">{{ antes|round(1) }}%</div>
+          <div class="h5 text-danger fw-bold">{{ (antes|default(0))|round(1) }}%</div>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card p-3 status-card status-card-warning">
+        <div class="card p-3 status-card status-card-warning text-center">
           <div class="small text-muted">Actual</div>
-          <div class="h5 text-warning fw-bold">{{ actual|round(1) }}%</div>
+          <div class="h5 text-warning fw-bold">{{ (actual|default(0))|round(1) }}%</div>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card p-3 status-card status-card-success">
+        <div class="card p-3 status-card status-card-success text-center">
           <div class="small text-muted">Meta</div>
-          <div class="h5 text-success fw-bold">{{ meta|round(1) }}%</div>
+          <div class="h5 text-success fw-bold">{{ (meta|default(15.0))|round(1) }}%</div>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card p-3 status-card status-card-info">
+        <div class="card p-3 status-card status-card-info text-center">
           <div class="small text-muted">Ya Reducido</div>
-          <div class="h5 text-info fw-bold">{{ ya_reducido|round(1) }}%</div>
+          <div class="h5 text-info fw-bold">{{ (ya_reducido|default(0))|round(1) }}%</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Gráficos -->
   <div class="row g-3">
     <div class="col-lg-6">
       <div class="card p-3">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Evolución diaria de merma</h5>
-        </div>
+        <h5 class="mb-3">Evolución diaria de merma</h5>
         <div style="position:relative; height:320px;">
           <canvas id="chart-merma-diaria"></canvas>
         </div>
@@ -129,9 +114,7 @@
 
     <div class="col-lg-6">
       <div class="card p-3">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Costo por motivo</h5>
-        </div>
+        <h5 class="mb-3">Costo por motivo</h5>
         <div style="position:relative; height:320px;">
           <canvas id="chart-merma-motivo"></canvas>
         </div>
@@ -139,7 +122,6 @@
     </div>
   </div>
 
-  <!-- Resumen por motivo + últimas mermas -->
   <div class="row g-3">
     <div class="col-lg-6">
       <div class="card p-3">
@@ -157,13 +139,11 @@
               {% for m in mermas_por_motivo %}
               <tr>
                 <td>{{ m.motivo }}</td>
-                <td class="text-end">{{ m.cantidad|round(3) }}</td>
-                <td class="text-end">${{ '{:,.0f}'.format(m.costo) }}</td>
+                <td class="text-end">{{ (m.cantidad|default(0))|round(3) }}</td>
+                <td class="text-end">${{ '{:,.0f}'.format(m.costo|default(0)) }}</td>
               </tr>
               {% else %}
-              <tr>
-                <td colspan="3" class="text-center text-muted">No hay mermas por motivo</td>
-              </tr>
+              <tr><td colspan="3" class="text-center text-muted">No hay mermas por motivo</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -176,14 +156,10 @@
         <div class="d-flex align-items-center justify-content-between mb-3">
           <div>
             <h5 class="mb-1">Mermas recientes</h5>
-            <div class="text-muted small">Se muestran 10 por defecto, con opción de expandir</div>
+            <div class="text-muted small">Registros de producción en cocina</div>
           </div>
-
-          <button
-            id="toggleMermasBtn"
-            class="btn btn-outline-success btn-sm"
-            {% if mermas_recientes|length <= 10 %}style="display:none;"{% endif %}
-          >
+          <button id="toggleMermasBtn" class="btn btn-outline-success btn-sm"
+                  {% if mermas_recientes|length <= 10 %}style="display:none;"{% endif %}>
             Mostrar más
           </button>
         </div>
@@ -193,10 +169,8 @@
             <thead>
               <tr>
                 <th>Fecha</th>
-                <th>Ingrediente</th>
-                <th>Lote</th>
                 <th>Motivo</th>
-                <th class="text-end">Cantidad</th>
+                <th class="text-end">Raciones</th>
                 <th class="text-end">Costo</th>
               </tr>
             </thead>
@@ -204,21 +178,16 @@
               {% for m in mermas_recientes %}
               <tr class="merma-row {% if loop.index > 10 %}d-none{% endif %}">
                 <td>{{ m.fecha.strftime('%d-%m-%Y') if m.fecha else '' }}</td>
-                <td>{{ m.lote.ingrediente.nombre if m.lote and m.lote.ingrediente else 'N/A' }}</td>
-                <td>Lote {{ m.id_lote }}</td>
                 <td>{{ m.motivo }}</td>
-                <td class="text-end">{{ m.cantidad|round(3) }}</td>
-                <td class="text-end">${{ '{:,.0f}'.format(m.costo_perdido) }}</td>
+                <td class="text-end">{{ (m.cantidad_raciones|default(0))|round(0) }}</td>
+                <td class="text-end">${{ '{:,.0f}'.format(m.costo_perdido|default(0)) }}</td>
               </tr>
               {% else %}
-              <tr>
-                <td colspan="6" class="text-center text-muted py-3">No hay registros de merma</td>
-              </tr>
+              <tr><td colspan="4" class="text-center text-muted py-3">No hay registros de merma en cocina</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-
         <div class="text-center small text-muted mt-2">
           Mostrando <strong id="shownMermasCount">{{ [10, mermas_recientes|length]|min }}</strong> de <strong>{{ mermas_recientes|length }}</strong>
         </div>
@@ -228,13 +197,8 @@
 </div>
 
 {# Datos para Chart.js #}
-<script id="waste-daily-data" type="application/json">
-{{ mermas_diarias|tojson }}
-</script>
-
-<script id="waste-motive-data" type="application/json">
-{{ mermas_por_motivo|tojson }}
-</script>
+<script id="waste-daily-data" type="application/json">{{ mermas_diarias|tojson }}</script>
+<script id="waste-motive-data" type="application/json">{{ mermas_por_motivo|tojson }}</script>
 
 <script>
 (function () {
@@ -244,10 +208,10 @@
     if (chartsInitialized) return;
     chartsInitialized = true;
 
-    var dailyData  = JSON.parse(document.getElementById('waste-daily-data').textContent  || '[]');
+    var dailyData = JSON.parse(document.getElementById('waste-daily-data').textContent || '[]');
     var motiveData = JSON.parse(document.getElementById('waste-motive-data').textContent || '[]');
 
-    var dailyCanvas  = document.getElementById('chart-merma-diaria');
+    var dailyCanvas = document.getElementById('chart-merma-diaria');
     var motiveCanvas = document.getElementById('chart-merma-motivo');
 
     if (dailyCanvas && window.Chart) {
@@ -285,8 +249,7 @@
             label: 'Costo perdido ($)',
             data: motiveData.map(function(x) { return x.costo; }),
             backgroundColor: ['#df3320','#e67e22','#f1c40f','#3498db','#9b59b6'],
-            borderRadius: 6,
-            borderSkipped: false
+            borderRadius: 6
           }]
         },
         options: {
@@ -299,30 +262,31 @@
     }
   }
 
-  // Escuchar el evento que dispara dashboard.js al mostrar el pane
+  // Soporte para carga diferida de pestañas
   var pane = document.getElementById('content-mermas');
   if (pane) {
     pane.addEventListener('pane:shown', initMermaCharts, { once: true });
+  } else {
+    // Si no es un pane (carga directa), inicializar de inmediato
+    setTimeout(initMermaCharts, 500);
   }
 
   // Toggle mermas recientes
-  var toggleBtn  = document.getElementById('toggleMermasBtn');
-  var rows       = Array.from(document.querySelectorAll('.merma-row'));
+  var toggleBtn = document.getElementById('toggleMermasBtn');
+  var rows = Array.from(document.querySelectorAll('.merma-row'));
   var shownCount = document.getElementById('shownMermasCount');
-  var expanded   = false;
+  var expanded = false;
 
   if (toggleBtn) {
     toggleBtn.addEventListener('click', function () {
       expanded = !expanded;
       toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
-
       var shown = 0;
       rows.forEach(function(row, index) {
         var visible = expanded || index < 10;
         row.classList.toggle('d-none', !visible);
         if (visible) shown++;
       });
-
       if (shownCount) shownCount.textContent = shown;
     });
   }

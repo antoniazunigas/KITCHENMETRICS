@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KitchenMetrics - Panel de Cocina</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
+    <style>
+        .merma-form-container { background: #fff3cd; border: 1px solid #ffeeba; padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+        .btn-merma { background: #856404; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-merma:hover { background: #533f03; transform: translateY(-2px); }
+        .input-merma { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
+        .alerta-flotante { padding: 15px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
 </head>
 <body class="cocina-body">
 
@@ -24,6 +31,19 @@
     </header>
 
     <main class="cocina-container">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alerta-flotante" style="
+                  background-color: {{ '#d4edda' if category == 'success' else '#f8d7da' }};
+                  color: {{ '#155724' if category == 'success' else '#721c24' }};
+                  border: 1px solid {{ '#c3e6cb' if category == 'success' else '#f5c6cb' }};">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
         
         <h3 class="section-title">📊 Planificación de Producción</h3>
         <div class="production-grid">
@@ -90,6 +110,38 @@
                 {% endfor %}
             </div>
         </section>
+
+        {% if modo == 'hoy' %}
+        <section class="merma-form-container card shadow-sm">
+            <h3 style="color: #856404; margin-top: 0; font-size: 1.1rem;">📉 Cierre de Jornada: Registro de Merma</h3>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Seleccione el menú y registre los kilos sobrantes para auditar la eficiencia.</p>
+            <form action="/registrar_merma" method="POST" style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <label style="display:block; font-size: 0.75rem; font-weight: bold; color: #856404;">MENÚ A CERRAR</label>
+                    <select name="id_jornada" class="input-merma" style="width: 380px;" required>
+                        <option value="">-- Seleccione el plato de fondo --</option>
+                        {% for r in reservas | unique(attribute='id_jornada') %}
+                            <option value="{{ r.id_jornada }}">
+                                {% if r.jornada.menu_dia.detalles %}
+                                    {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
+                                        {{ d.plato.nombre }}{% if not loop.last %} + {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                                (ID: {{ r.id_jornada }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size: 0.75rem; font-weight: bold; color: #856404;">KILOS SOBRANTES</label>
+                    <input type="number" name="cantidad_merma" step="0.01" class="input-merma" style="width: 130px;" placeholder="0.00" min="0" required>
+                </div>
+                <div style="padding-top: 15px;">
+                    <button type="submit" class="btn-merma">REGISTRAR EXITOSAMENTE</button>
+                </div>
+            </form>
+        </section>
+        {% endif %}
 
         <section class="card">
             <h3>📋 Lista de Entrega Detallada</h3>
