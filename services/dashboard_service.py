@@ -367,7 +367,7 @@ def get_waste_context(start_date, today):
         })
 
     # Lista de mermas recientes (lo más importante para que se vea tu trabajo)
-    mermas_recientes = MermaPreparada.query.order_by(MermaPreparada.fecha.desc()).limit(10).all()
+    mermas_recientes = MermaIngrediente.query.order_by(MermaIngrediente.fecha.desc()).limit(10).all()
 
     return {
         "mermas_diarias": mermas_diarias,

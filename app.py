@@ -614,32 +614,89 @@ def panel_cocina():
 def panel_jefe_cocina():
     period = request.args.get('period', 'week')
     today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
+
     current_reservas = dashboard_service._reservas_base(start_date, today)
     previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
-    kpis = dashboard_service.calculate_dashboard_kpis(start_date, today, prev_start, prev_end, current_reservas, previous_reservas)
+
+    kpis = dashboard_service.calculate_dashboard_kpis(
+        start_date, today, prev_start, prev_end, current_reservas, previous_reservas
+    )
     listas = dashboard_service.get_dashboard_lists(start_date, today, current_reservas)
     charts = dashboard_service.generate_dashboard_charts(start_date, today)
     waste = dashboard_service.get_waste_context(start_date, today)
 
-    # Para planificación: dict fecha_iso -> {id_menu, estado, detalles, jornada}
-    menus = MenuDia.query.filter(MenuDia.fecha >= today).order_by(MenuDia.fecha).all()
-    menus_por_fecha = {str(m.fecha): {'id_menu': m.id_menu, 'estado': m.estado,
-        'detalles': [{'orden': d.orden, 'id_plato': d.id_plato} for d in m.detalles],
-        'jornada': {'raciones_planificadas': m.jornadas[0].raciones_planificadas if m.jornadas else 100}} for m in menus}
-    platos_list = [{'id_plato': p.id_plato, 'nombre': p.nombre, 'tipo_plato': p.tipo_plato, 'tipo_dieta': p.tipo_dieta} for p in Plato.query.all()]
+    # Evitar choques de claves repetidas
+    kpis.pop('total_merma_cost', None)
+    kpis.pop('percent_desperdicio', None)
+    waste.pop('total_merma_cost', None)
+    waste.pop('percent_desperdicio', None)
 
-    # Para mermas: dict fecha_iso -> {count}
+    menus = MenuDia.query.filter(MenuDia.fecha >= today).order_by(MenuDia.fecha).all()
+    menus_por_fecha = {
+        str(m.fecha): {
+            'id_menu': m.id_menu,
+            'estado': m.estado,
+            'detalles': [{'orden': d.orden, 'id_plato': d.id_plato} for d in m.detalles],
+            'jornada': {
+                'raciones_planificadas': m.jornadas[0].raciones_planificadas if m.jornadas else 100,
+                'raciones_preparadas': m.jornadas[0].raciones_preparadas if m.jornadas else 0,
+                'raciones_disponibles': m.jornadas[0].raciones_disponibles if m.jornadas else 0,
+            }
+        }
+        for m in menus
+    }
+
+    platos_list = [
+        {
+            'id_plato': p.id_plato,
+            'nombre': p.nombre,
+            'tipo_plato': p.tipo_plato,
+            'tipo_dieta': p.tipo_dieta
+        }
+        for p in Plato.query.all()
+    ]
+
     from sqlalchemy import func
-    rows = db.session.query(MermaIngrediente.fecha, func.count()).group_by(MermaIngrediente.fecha).filter(MermaIngrediente.fecha >= start_date).all()
+    rows = (
+        db.session.query(MermaIngrediente.fecha, func.count())
+        .group_by(MermaIngrediente.fecha)
+        .filter(MermaIngrediente.fecha >= start_date)
+        .all()
+    )
     mermas_por_fecha = {str(r[0]): {'count': r[1]} for r in rows}
 
-    return render_template('jefe_cocina.html',
-        nombre=session.get('user_nombre'), period=period, period_label=period_label,
-        start_date_str=start_date.strftime('%Y-%m-%d'), today_str=today.strftime('%Y-%m-%d'),
-        current_year=today.year, menus_por_fecha=menus_por_fecha, platos_list=platos_list,
-        mermas_por_fecha=mermas_por_fecha, lotes_list=LoteIngrediente.query.all(),
-        jornadas_list=JornadaCocina.query.order_by(JornadaCocina.id_jornada.desc()).limit(30).all(),
-        **kpis, **listas, **charts, **waste)
+    mermas_ingrediente_recientes = MermaIngrediente.query.order_by(
+        MermaIngrediente.fecha.desc()
+    ).limit(30).all()
+
+    # Unificar contexto sin sobreescribir claves repetidas
+    context = {}
+    for d in (
+        kpis,
+        listas,
+        charts,
+        waste,
+        {'menus_por_fecha': menus_por_fecha},
+        {'platos_list': platos_list},
+        {'mermas_por_fecha': mermas_por_fecha},
+        {'lotes_list': LoteIngrediente.query.all()},
+        {'jornadas_list': JornadaCocina.query.order_by(JornadaCocina.id_jornada.desc()).limit(30).all()},
+        {'mermas_recientes': mermas_ingrediente_recientes},
+    ):
+        for k, v in d.items():
+            if k not in context:
+                context[k] = v
+
+    return render_template(
+        'jefe_cocina.html',
+        nombre=session.get('user_nombre'),
+        period=period,
+        period_label=period_label,
+        start_date_str=start_date.strftime('%Y-%m-%d'),
+        today_str=today.strftime('%Y-%m-%d'),
+        current_year=today.year,
+        **context
+    )
 
 
 # ============================================================
