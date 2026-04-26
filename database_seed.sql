@@ -644,3 +644,44 @@ $$;
 -- 21. EJECUTAR PROCEDIMIENTO PARA POBLAR REPORTE INICIAL
 -- =========================================================
 CALL sp_generar_reporte_mermas_vs_consumo_ultimo_mes();
+
+
+-- =========================================================
+--  22. LIMPIEZA DE RESERVAS FUTURAS
+-- =========================================================
+BEGIN;
+
+-- Restaurar cupos antes de borrar reservas futuras
+UPDATE jornada_cocina j
+SET raciones_disponibles = j.raciones_disponibles + sub.total_reservas
+FROM (
+    SELECT r.id_jornada, COUNT(*) AS total_reservas
+    FROM reserva r
+    JOIN jornada_cocina j2 ON j2.id_jornada = r.id_jornada
+    JOIN menu_dia m ON m.id_menu = j2.id_menu
+    WHERE m.fecha > CURRENT_DATE + INTERVAL '1 day'
+    GROUP BY r.id_jornada
+) sub
+WHERE j.id_jornada = sub.id_jornada;
+
+-- Borrar consumos futuros
+DELETE FROM consumo
+WHERE id_reserva IN (
+    SELECT r.id_reserva
+    FROM reserva r
+    JOIN jornada_cocina j ON j.id_jornada = r.id_jornada
+    JOIN menu_dia m ON m.id_menu = j.id_menu
+    WHERE m.fecha > CURRENT_DATE + INTERVAL '1 day'
+);
+
+-- Borrar reservas futuras
+DELETE FROM reserva
+WHERE id_reserva IN (
+    SELECT r.id_reserva
+    FROM reserva r
+    JOIN jornada_cocina j ON j.id_jornada = r.id_jornada
+    JOIN menu_dia m ON m.id_menu = j.id_menu
+    WHERE m.fecha > CURRENT_DATE + INTERVAL '1 day'
+);
+
+COMMIT;

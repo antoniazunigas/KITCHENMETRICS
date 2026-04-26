@@ -1,8 +1,4 @@
-<!-- ============================================================
-     MERMAS JC — Calendario mes anterior + registro de mermas
-     Requiere desde la ruta: lotes_list, mermas_por_fecha (dict),
-     jornadas_por_fecha (dict), ingredientes_list
-     ============================================================ -->
+<!-- mermas_jc.html -->
 
 <div class="d-flex flex-column gap-3">
 
@@ -11,7 +7,7 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
       <div>
         <h4 class="mb-1 fw-bold">⚠️ Registro de Mermas</h4>
-        <div class="text-muted small">Registra mermas de ingredientes y platos no consumidos. Los últimos 30 días desde hoy.</div>
+        <div class="text-muted small">Registra mermas de ingredientes y platos no consumidos. Se muestran los últimos 30 días hacia atrás desde hoy.</div>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <span class="d-flex align-items-center gap-1"><span class="legend-dot-m" style="background:#dc3545;"></span><small>Con mermas</small></span>
@@ -59,7 +55,7 @@
       <h6 class="mb-1 fw-bold">📝 Registro rápido</h6>
       <div class="text-muted small">Registra merma de ingredientes o platos no consumidos para hoy u otro día del calendario.</div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
       <button class="btn btn-outline-danger btn-sm" onclick="openMermaModal('hoy', 'ingrediente')">
         🧪 Merma de Ingrediente – Hoy
       </button>
@@ -69,9 +65,12 @@
     </div>
   </div>
 
-  <!-- Calendario mes anterior -->
+  <!-- Calendario últimos 30 días -->
   <div class="card p-3">
-    <h5 class="mb-3">📆 Calendario — Últimos 30 días</h5>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h5 class="mb-0">📆 Calendario — Últimos 30 días</h5>
+      <small class="text-muted">Haz clic en un día para registrar una merma</small>
+    </div>
     <div id="jc-mermas-calendar"></div>
   </div>
 
@@ -87,7 +86,14 @@
     <div class="table-responsive">
       <table class="table table-sm align-middle table-hover">
         <thead>
-          <tr><th>Fecha</th><th>Ingrediente</th><th>Lote</th><th>Motivo</th><th class="text-end">Cantidad</th><th class="text-end">Costo</th></tr>
+          <tr>
+            <th>Fecha</th>
+            <th>Ingrediente</th>
+            <th>Lote</th>
+            <th>Motivo</th>
+            <th class="text-end">Cantidad</th>
+            <th class="text-end">Costo</th>
+          </tr>
         </thead>
         <tbody id="mermasJCBody">
           {% for m in mermas_recientes %}
@@ -223,220 +229,389 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     ESTILOS + JS
-════════════════════════════════════════════ -->
 <style>
 .legend-dot-m { display:inline-block; width:12px; height:12px; border-radius:50%; }
+
+#jc-mermas-calendar {
+    font-family: 'Segoe UI', sans-serif;
+}
+
 .cal-mermas-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 5px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
 }
+
 .cal-m-header {
-    text-align:center; font-weight:700; font-size:.75rem;
-    color:#6c757d; padding:4px 0; text-transform:uppercase;
+    text-align: center;
+    font-weight: 700;
+    font-size: .75rem;
+    color: #6c757d;
+    padding: 4px 0;
+    text-transform: uppercase;
 }
+
 .cal-m-day {
-    min-height:60px; border-radius:8px; padding:6px;
-    cursor:pointer; border:2px solid transparent;
+    min-height: 72px;
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
     transition: transform .15s, box-shadow .15s, border-color .15s;
-    background:#f8f9fa; position:relative; user-select:none;
+    background: #f8f9fa;
+    position: relative;
+    user-select: none;
 }
-.cal-m-day:hover { transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.12); border-color:#dc3545; }
-.cal-m-day.has-merma { background:#fde8e8; }
-.cal-m-day.is-today  { border-color:#e67e22 !important; background:#fff3cd; }
-.cal-m-day.is-future { opacity:.4; cursor:default; }
-.cal-m-day.is-future:hover { transform:none; box-shadow:none; border-color:transparent; }
-.cal-m-day.empty     { background:transparent; cursor:default; border:none; }
-.cal-m-day.empty:hover { transform:none; box-shadow:none; }
-.cal-m-num  { font-weight:700; font-size:.88rem; color:#2c3e50; }
-.cal-m-day.has-merma .cal-m-num { color:#721c24; }
-.cal-m-label { font-size:.65rem; color:#888; margin-top:3px; }
+
+.cal-m-day:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,.12);
+    border-color: #dc3545;
+}
+
+.cal-m-day.has-merma { background: #fde8e8; }
+.cal-m-day.is-today  { border-color: #e67e22 !important; background: #fff3cd; }
+.cal-m-day.empty     { background: transparent; cursor: default; border: none; }
+.cal-m-day.empty:hover { transform: none; box-shadow: none; border-color: transparent; }
+
+.cal-m-num {
+    font-weight: 700;
+    font-size: .95rem;
+    color: #2c3e50;
+}
+
+.cal-m-day.has-merma .cal-m-num {
+    color: #721c24;
+}
+
+.cal-m-weekday {
+    font-size: .68rem;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.cal-m-label {
+    font-size: .7rem;
+    color: #555;
+    margin-top: 4px;
+}
+
 .cal-m-dot {
-    width:7px; height:7px; border-radius:50%;
-    background:#dc3545; position:absolute; bottom:6px; right:6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #dc3545;
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
 }
 </style>
 
 <script>
-(function () {
-    const mermasPorFecha = {{ mermas_por_fecha | tojson | default('{}') }};
-    const modalIng  = new bootstrap.Modal(document.getElementById('mermaIngModal'));
-    const modalPlat = new bootstrap.Modal(document.getElementById('mermaPlModal'));
+document.addEventListener('DOMContentLoaded', function () {
+    (function () {
+        const mermasPorFecha = {{ mermas_por_fecha | default({}, true) | tojson }};
 
-    /* ── Render calendar (last 30 days) ── */
-    function renderMermasCalendar() {
-        const container = document.getElementById('jc-mermas-calendar');
-        if (!container) return;
-        container.innerHTML = '';
+        const modalIng  = new bootstrap.Modal(document.getElementById('mermaIngModal'));
+        const modalPlat = new bootstrap.Modal(document.getElementById('mermaPlModal'));
 
-        const today = new Date(); today.setHours(0,0,0,0);
-        const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        const DAYS   = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+        const miFecha   = document.getElementById('mi-fecha');
+        const miLote    = document.getElementById('mi-lote');
+        const miCantidad= document.getElementById('mi-cantidad');
+        const miCosto   = document.getElementById('mi-costo');
+        const miMotivo  = document.getElementById('mi-motivo');
+        const miAlert   = document.getElementById('mi-alert');
+        const miSaveBtn = document.getElementById('mi-save-btn');
 
-        // We'll show current month + previous month (to cover 30 days)
-        const months = [];
-        let cur = new Date(today.getFullYear(), today.getMonth(), 1);
-        months.push(new Date(cur));
-        cur.setMonth(cur.getMonth() - 1);
-        months.push(new Date(cur));
-        months.reverse();
+        const mpFecha   = document.getElementById('mp-fecha');
+        const mpJornada = document.getElementById('mp-jornada');
+        const mpCantidad= document.getElementById('mp-cantidad');
+        const mpCosto   = document.getElementById('mp-costo');
+        const mpMotivo  = document.getElementById('mp-motivo');
+        const mpAlert   = document.getElementById('mp-alert');
+        const mpSaveBtn = document.getElementById('mp-save-btn');
 
-        function pad(n) { return String(n).padStart(2,'0'); }
-        function toIso(dt) { return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`; }
+        const toggleBtn = document.getElementById('toggleMermasJCBtn');
+        const rows      = Array.from(document.querySelectorAll('.merma-jc-row'));
+        const shownEl   = document.getElementById('shownMermasJC');
 
-        months.forEach(monthStart => {
-            const yr  = monthStart.getFullYear();
-            const mo  = monthStart.getMonth();
-            const title = document.createElement('h6');
-            title.className = 'fw-bold mb-2 mt-3';
-            title.textContent = `${MONTHS[mo]} ${yr}`;
-            container.appendChild(title);
+        let expanded = false;
 
-            const grid = document.createElement('div');
-            grid.className = 'cal-mermas-grid';
+        function pad(n) {
+            return String(n).padStart(2, '0');
+        }
 
-            DAYS.forEach(d => {
-                const h = document.createElement('div');
-                h.className = 'cal-m-header'; h.textContent = d;
-                grid.appendChild(h);
+        function toIso(dt) {
+            return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+        }
+
+        function fromIso(iso) {
+            const [y, m, d] = iso.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+
+        function weekdayEs(dt) {
+            const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            return days[dt.getDay()];
+        }
+
+        function showAlert(el, type, msg) {
+            el.className = `alert alert-${type} mt-3`;
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+
+        function clearAlert(el) {
+            el.className = 'alert mt-3 d-none';
+            el.textContent = '';
+        }
+
+        function buildCalendar() {
+            const container = document.getElementById('jc-mermas-calendar');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const days = [];
+            for (let i = 29; i >= 0; i--) {
+                const dt = new Date(today);
+                dt.setDate(today.getDate() - i);
+                dt.setHours(0, 0, 0, 0);
+                days.push(dt);
+            }
+
+            const MONTHS_ES = [
+                'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+            ];
+            const DAYS_ES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+            const groups = [];
+            let currentKey = null;
+            let currentGroup = null;
+
+            days.forEach(dt => {
+                const key = `${dt.getFullYear()}-${dt.getMonth()}`;
+                if (key !== currentKey) {
+                    currentKey = key;
+                    currentGroup = {
+                        year: dt.getFullYear(),
+                        month: dt.getMonth(),
+                        days: []
+                    };
+                    groups.push(currentGroup);
+                }
+                currentGroup.days.push(dt);
             });
 
-            const firstDay = new Date(yr, mo, 1).getDay();
-            const offset   = (firstDay + 6) % 7;
-            for (let i = 0; i < offset; i++) {
-                const b = document.createElement('div'); b.className = 'cal-m-day empty'; grid.appendChild(b);
-            }
+            groups.forEach(group => {
+                const title = document.createElement('h6');
+                title.className = 'fw-bold mb-2 mt-3';
+                title.textContent = `${MONTHS_ES[group.month]} ${group.year}`;
+                container.appendChild(title);
 
-            const daysInMonth = new Date(yr, mo + 1, 0).getDate();
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dt   = new Date(yr, mo, d); dt.setHours(0,0,0,0);
-                const iso  = toIso(dt);
-                const cell = document.createElement('div');
-                const isTd = dt.getTime() === today.getTime();
-                const isFt = dt > today;
-                const hasMr= !!mermasPorFecha[iso];
+                const grid = document.createElement('div');
+                grid.className = 'cal-mermas-grid';
 
-                cell.className = 'cal-m-day' + (hasMr?' has-merma':'') + (isTd?' is-today':'') + (isFt?' is-future':'');
-                cell.innerHTML = `<div class="cal-m-num">${d}</div>`;
-                if (hasMr) {
-                    const cnt = mermasPorFecha[iso].count || '';
-                    cell.innerHTML += `<div class="cal-m-label">${cnt} merma${cnt!==1?'s':''}</div><div class="cal-m-dot"></div>`;
-                } else if (!isFt) {
-                    cell.innerHTML += `<div class="cal-m-label" style="color:#ccc;">OK</div>`;
+                DAYS_ES.forEach(d => {
+                    const h = document.createElement('div');
+                    h.className = 'cal-m-header';
+                    h.textContent = d;
+                    grid.appendChild(h);
+                });
+
+                const firstDayWeekIndex = (new Date(group.year, group.month, 1).getDay() + 6) % 7;
+                const firstVisibleDay = group.days[0].getDate();
+                const leadingBlanks = Math.max(0, (firstDayWeekIndex + firstVisibleDay - 1) % 7);
+
+                for (let i = 0; i < leadingBlanks; i++) {
+                    const blank = document.createElement('div');
+                    blank.className = 'cal-m-day empty';
+                    grid.appendChild(blank);
                 }
 
-                if (!isFt) {
-                    cell.addEventListener('click', () => { openDayMermaOptions(iso, isTd); });
-                }
-                grid.appendChild(cell);
-            }
-            container.appendChild(grid);
-        });
-    }
+                group.days.forEach(dt => {
+                    const iso = toIso(dt);
+                    const hasMr = !!mermasPorFecha[iso];
+                    const isToday = dt.getTime() === today.getTime();
 
-    /* ── Day click → show quick actions via small inline menu ── */
-    function openDayMermaOptions(iso, isToday) {
-        // Set dates on modals
-        document.getElementById('mi-fecha').value = iso;
-        document.getElementById('mp-fecha').value = iso;
-        // Use a simple confirm to pick type
-        const choice = window.confirm(`Día: ${iso}\n\n¿Registrar merma de INGREDIENTE?\nPresiona OK para ingrediente, Cancelar para platos no consumidos.`);
-        if (choice) {
-            modalIng.show();
-        } else {
-            modalPlat.show();
+                    const cell = document.createElement('div');
+                    cell.className = 'cal-m-day' + (hasMr ? ' has-merma' : '') + (isToday ? ' is-today' : '');
+
+                    const dayNum = dt.getDate();
+                    const weekday = weekdayEs(dt);
+
+                    cell.innerHTML = `<div class="cal-m-num">${dayNum}</div><div class="cal-m-weekday">${weekday}</div>`;
+
+                    if (hasMr) {
+                        const cnt = mermasPorFecha[iso].count || '';
+                        cell.innerHTML += `<div class="cal-m-label">${cnt} merma${cnt !== 1 ? 's' : ''}</div><div class="cal-m-dot"></div>`;
+                    } else if (dt <= today) {
+                        cell.innerHTML += `<div class="cal-m-label" style="color:#adb5bd;">Sin merma</div>`;
+                    }
+
+                    cell.addEventListener('click', () => openDayMermaOptions(iso));
+                    grid.appendChild(cell);
+                });
+
+                container.appendChild(grid);
+            });
         }
-    }
 
-    /* ── Global helper called from buttons ── */
-    window.openMermaModal = function(dia, tipo) {
-        const hoy = new Date();
-        const iso = dia === 'hoy'
-            ? `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`
-            : dia;
-        document.getElementById('mi-fecha').value = iso;
-        document.getElementById('mp-fecha').value = iso;
-        if (tipo === 'ingrediente') modalIng.show();
-        else modalPlat.show();
-    };
+        function openDayMermaOptions(iso) {
+            miFecha.value = iso;
+            mpFecha.value = iso;
 
-    /* ── Auto-calculate cost on lote + cantidad change ── */
-    function recalcCost() {
-        const sel   = document.getElementById('mi-lote');
-        const qty   = parseFloat(document.getElementById('mi-cantidad').value) || 0;
-        const costo = parseFloat(sel.options[sel.selectedIndex]?.dataset.costo) || 0;
-        if (costo && qty) document.getElementById('mi-costo').value = Math.round(qty * costo);
-    }
-    document.getElementById('mi-lote')?.addEventListener('change', recalcCost);
-    document.getElementById('mi-cantidad')?.addEventListener('input', recalcCost);
+            const choice = window.confirm(
+                `Día: ${iso}\n\n¿Registrar merma de INGREDIENTE?\nOK = Ingrediente\nCancelar = Platos`
+            );
 
-    /* ── Save ingrediente merma ── */
-    document.getElementById('mi-save-btn')?.addEventListener('click', async () => {
-        const payload = {
-            fecha:         document.getElementById('mi-fecha').value,
-            id_lote:       parseInt(document.getElementById('mi-lote').value),
-            cantidad:      parseFloat(document.getElementById('mi-cantidad').value),
-            costo_perdido: parseFloat(document.getElementById('mi-costo').value) || 0,
-            motivo:        document.getElementById('mi-motivo').value,
+            if (choice) {
+                clearAlert(miAlert);
+                modalIng.show();
+            } else {
+                clearAlert(mpAlert);
+                modalPlat.show();
+            }
+        }
+
+        window.openMermaModal = function (dia, tipo) {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+
+            const iso = dia === 'hoy'
+                ? toIso(hoy)
+                : dia;
+
+            miFecha.value = iso;
+            mpFecha.value = iso;
+
+            if (tipo === 'ingrediente') {
+                clearAlert(miAlert);
+                modalIng.show();
+            } else {
+                clearAlert(mpAlert);
+                modalPlat.show();
+            }
         };
-        if (!payload.id_lote || !payload.cantidad) { showA('mi-alert','warning','⚠️ Completa todos los campos obligatorios.'); return; }
-        try {
-            const res  = await fetch('/jc/merma/ingrediente/registrar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.success) {
-                mermasPorFecha[payload.fecha] = { count: (mermasPorFecha[payload.fecha]?.count || 0) + 1 };
-                showA('mi-alert','success','✅ Merma registrada correctamente.');
-                setTimeout(() => { modalIng.hide(); renderMermasCalendar(); }, 700);
-            } else { showA('mi-alert','danger','❌ ' + (data.error || 'Error')); }
-        } catch { showA('mi-alert','danger','❌ Error de conexión.'); }
-    });
 
-    /* ── Save plato merma ── */
-    document.getElementById('mp-save-btn')?.addEventListener('click', async () => {
-        const payload = {
-            fecha:            document.getElementById('mp-fecha').value,
-            id_jornada:       parseInt(document.getElementById('mp-jornada').value) || null,
-            cantidad_raciones:parseInt(document.getElementById('mp-cantidad').value) || 0,
-            costo_perdido:    parseFloat(document.getElementById('mp-costo').value) || 0,
-            motivo:           document.getElementById('mp-motivo').value,
-        };
-        if (!payload.cantidad_raciones) { showA('mp-alert','warning','⚠️ Indica la cantidad de raciones.'); return; }
-        try {
-            const res  = await fetch('/jc/merma/plato/registrar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.success) {
-                showA('mp-alert','success','✅ Merma de platos registrada.');
-                setTimeout(() => modalPlat.hide(), 700);
-            } else { showA('mp-alert','danger','❌ ' + (data.error || 'Error')); }
-        } catch { showA('mp-alert','danger','❌ Error de conexión.'); }
-    });
+        function recalcCost() {
+            const selected = miLote.options[miLote.selectedIndex];
+            const costoUnit = parseFloat(selected?.dataset?.costo || 0) || 0;
+            const qty = parseFloat(miCantidad.value) || 0;
 
-    function showA(id, type, msg) {
-        const el = document.getElementById(id);
-        el.className = `alert alert-${type} mt-3`;
-        el.textContent = msg;
-        el.classList.remove('d-none');
-    }
+            if (costoUnit > 0 && qty > 0) {
+                miCosto.value = Math.round(costoUnit * qty);
+            }
+        }
 
-    /* ── Toggle historial ── */
-    const toggleBtn = document.getElementById('toggleMermasJCBtn');
-    const rows      = Array.from(document.querySelectorAll('.merma-jc-row'));
-    const shownEl   = document.getElementById('shownMermasJC');
-    let expanded    = false;
+        miLote?.addEventListener('change', recalcCost);
+        miCantidad?.addEventListener('input', recalcCost);
 
-    toggleBtn?.addEventListener('click', () => {
-        expanded = !expanded;
-        toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
-        let shown = 0;
-        rows.forEach((r, i) => { const v = expanded || i < 10; r.classList.toggle('d-none', !v); if(v) shown++; });
-        if (shownEl) shownEl.textContent = shown;
-    });
+        miSaveBtn?.addEventListener('click', async () => {
+            const payload = {
+                fecha: miFecha.value,
+                id_lote: parseInt(miLote.value),
+                cantidad: parseFloat(miCantidad.value),
+                costo_perdido: parseFloat(miCosto.value) || 0,
+                motivo: miMotivo.value
+            };
 
-    /* ── Init ── */
-    renderMermasCalendar();
-    document.getElementById('content-mermas')?.addEventListener('pane:shown', renderMermasCalendar, { once: false });
-})();
+            if (!payload.fecha || !payload.id_lote || !payload.cantidad) {
+                showAlert(miAlert, 'warning', '⚠️ Completa fecha, lote y cantidad.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/jc/merma/ingrediente/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    mermasPorFecha[payload.fecha] = {
+                        count: (mermasPorFecha[payload.fecha]?.count || 0) + 1
+                    };
+                    showAlert(miAlert, 'success', '✅ Merma de ingrediente registrada correctamente.');
+                    setTimeout(() => {
+                        modalIng.hide();
+                        buildCalendar();
+                    }, 700);
+                } else {
+                    showAlert(miAlert, 'danger', '❌ ' + (data.error || 'No se pudo registrar'));
+                }
+            } catch (err) {
+                showAlert(miAlert, 'danger', '❌ Error de conexión.');
+            }
+        });
+
+        mpSaveBtn?.addEventListener('click', async () => {
+            const payload = {
+                fecha: mpFecha.value,
+                id_jornada: parseInt(mpJornada.value) || null,
+                cantidad_raciones: parseInt(mpCantidad.value) || 0,
+                costo_perdido: parseFloat(mpCosto.value) || 0,
+                motivo: mpMotivo.value
+            };
+
+            if (!payload.fecha || !payload.cantidad_raciones) {
+                showAlert(mpAlert, 'warning', '⚠️ Completa fecha y cantidad de raciones.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/jc/merma/plato/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    mermasPorFecha[payload.fecha] = {
+                        count: (mermasPorFecha[payload.fecha]?.count || 0) + 1
+                    };
+                    showAlert(mpAlert, 'success', '✅ Merma de platos registrada correctamente.');
+                    setTimeout(() => {
+                        modalPlat.hide();
+                        buildCalendar();
+                    }, 700);
+                } else {
+                    showAlert(mpAlert, 'danger', '❌ ' + (data.error || 'No se pudo registrar'));
+                }
+            } catch (err) {
+                showAlert(mpAlert, 'danger', '❌ Error de conexión.');
+            }
+        });
+
+        toggleBtn?.addEventListener('click', () => {
+            expanded = !expanded;
+            toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
+
+            let shown = 0;
+            rows.forEach((row, index) => {
+                const visible = expanded || index < 10;
+                row.classList.toggle('d-none', !visible);
+                if (visible) shown++;
+            });
+
+            if (shownEl) {
+                shownEl.textContent = shown;
+            }
+        });
+
+        buildCalendar();
+
+        document.getElementById('content-mermas')?.addEventListener('pane:shown', () => {
+            buildCalendar();
+        });
+    })();
+});
 </script>

@@ -1,8 +1,4 @@
-<!-- ============================================================
-     PLANIFICACIÓN JC — Calendario de menús (30 días futuro)
-     Pasar desde la ruta: menus_por_fecha (dict fecha_str -> menu)
-     y platos_list (lista de Plato)
-     ============================================================ -->
+<!-- planificacion_jc.html -->
 
 <div class="d-flex flex-column gap-3">
 
@@ -74,31 +70,30 @@
 
         <hr>
 
-        <!-- Platos del menú (5 slots: 1 entrada, 3 fondos, 1 postre) -->
+        <!-- Platos del menú -->
         <h6 class="fw-bold mb-3">Composición del Menú</h6>
         <div class="row g-3" id="modal-platos-container">
 
-          <!-- Slot 1 – Entrada -->
           <div class="col-md-6">
             <label class="form-label"><span class="badge bg-primary me-1">1</span> Entrada</label>
             <select class="form-select form-select-sm modal-plato-select" data-orden="1" id="modal-plato-1"></select>
           </div>
 
-          <!-- Slot 2, 3, 4 – Fondos -->
           <div class="col-md-6">
             <label class="form-label"><span class="badge bg-warning text-dark me-1">2</span> Fondo opción 1</label>
             <select class="form-select form-select-sm modal-plato-select" data-orden="2" id="modal-plato-2"></select>
           </div>
+
           <div class="col-md-6">
             <label class="form-label"><span class="badge bg-warning text-dark me-1">3</span> Fondo opción 2</label>
             <select class="form-select form-select-sm modal-plato-select" data-orden="3" id="modal-plato-3"></select>
           </div>
+
           <div class="col-md-6">
             <label class="form-label"><span class="badge bg-warning text-dark me-1">4</span> Fondo opción 3 (Vegano)</label>
             <select class="form-select form-select-sm modal-plato-select" data-orden="4" id="modal-plato-4"></select>
           </div>
 
-          <!-- Slot 5 – Postre -->
           <div class="col-md-6">
             <label class="form-label"><span class="badge bg-purple me-1" style="background:#9b59b6;">5</span> Postre</label>
             <select class="form-select form-select-sm modal-plato-select" data-orden="5" id="modal-plato-5"></select>
@@ -106,7 +101,6 @@
 
         </div>
 
-        <!-- Jornada -->
         <hr>
         <h6 class="fw-bold mb-3">Raciones Planificadas</h6>
         <div class="row g-3">
@@ -137,9 +131,6 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     ESTILOS + JS del calendario
-════════════════════════════════════════════ -->
 <style>
 .legend-dot { display:inline-block; width:12px; height:12px; border-radius:50%; }
 
@@ -186,232 +177,270 @@
 </style>
 
 <script>
-(function () {
-    /* ── Data from Flask ── */
-    const menusPorFecha  = {{ menus_por_fecha | tojson | default('{}') }};
-    const platosDisp     = {{ platos_list     | tojson | default('[]') }};
+document.addEventListener('DOMContentLoaded', function () {
+    (function () {
+        const menusPorFecha  = {{ menus_por_fecha | default({}, true) | tojson }};
+        const platosDisp     = {{ platos_list | default([], true) | tojson }};
 
-    const modal          = new bootstrap.Modal(document.getElementById('menuDayModal'));
-    const modalTitle     = document.getElementById('menuDayModalTitle');
-    const modalFechaDisp = document.getElementById('modal-fecha-display');
-    const modalFechaIso  = document.getElementById('modal-fecha-iso');
-    const modalIdMenu    = document.getElementById('modal-id-menu');
-    const modalEstado    = document.getElementById('modal-estado');
-    const modalBadge     = document.getElementById('modal-menu-badge');
-    const modalAlert     = document.getElementById('modal-alert');
-    const modalSaveBtn   = document.getElementById('modal-save-btn');
-    const modalDeleteBtn = document.getElementById('modal-delete-btn');
-    const modalRacionesPlan = document.getElementById('modal-raciones-plan');
-    const modalRacionesPrep = document.getElementById('modal-raciones-prep');
-    const modalRacionesDisp = document.getElementById('modal-raciones-disp');
+        const modal          = new bootstrap.Modal(document.getElementById('menuDayModal'));
+        const modalTitle     = document.getElementById('menuDayModalTitle');
+        const modalFechaDisp = document.getElementById('modal-fecha-display');
+        const modalFechaIso  = document.getElementById('modal-fecha-iso');
+        const modalIdMenu    = document.getElementById('modal-id-menu');
+        const modalEstado    = document.getElementById('modal-estado');
+        const modalBadge     = document.getElementById('modal-menu-badge');
+        const modalAlert     = document.getElementById('modal-alert');
+        const modalSaveBtn   = document.getElementById('modal-save-btn');
+        const modalDeleteBtn = document.getElementById('modal-delete-btn');
+        const modalRacionesPlan = document.getElementById('modal-raciones-plan');
+        const modalRacionesPrep = document.getElementById('modal-raciones-prep');
+        const modalRacionesDisp = document.getElementById('modal-raciones-disp');
 
-    let currentYear, currentMonth;
+        let currentYear, currentMonth;
 
-    /* ── Helpers ── */
-    function pad(n) { return String(n).padStart(2, '0'); }
-    function toIso(y, m, d) { return `${y}-${pad(m+1)}-${pad(d)}`; }
+        function pad(n) { return String(n).padStart(2, '0'); }
+        function toIso(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
 
-    const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                       'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const DAYS_ES   = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+        const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                           'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const DAYS_ES   = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 
-    /* ── Build selects for platos ── */
-    function buildPlatoSelects() {
-        const selects = document.querySelectorAll('.modal-plato-select');
-        selects.forEach(sel => {
-            const orden = parseInt(sel.dataset.orden);
-            sel.innerHTML = '<option value="">— Sin plato —</option>';
-            platosDisp.forEach(p => {
-                // Filter by type
-                const tipo = p.tipo_plato || '';
-                let show = false;
-                if (orden === 1 && tipo === 'entrada') show = true;
-                if (orden >= 2 && orden <= 4 && tipo === 'fondo') show = true;
-                if (orden === 5 && tipo === 'postre') show = true;
-                if (show) {
-                    const opt = document.createElement('option');
-                    opt.value = p.id_plato;
-                    opt.textContent = p.nombre + (p.tipo_dieta ? ` (${p.tipo_dieta})` : '');
-                    sel.appendChild(opt);
+        function buildPlatoSelects() {
+            const selects = document.querySelectorAll('.modal-plato-select');
+            selects.forEach(sel => {
+                const orden = parseInt(sel.dataset.orden);
+                sel.innerHTML = '<option value="">— Sin plato —</option>';
+
+                platosDisp.forEach(p => {
+                    const tipo = p.tipo_plato || '';
+                    let show = false;
+
+                    if (orden === 1 && tipo === 'entrada') show = true;
+                    if (orden >= 2 && orden <= 4 && tipo === 'fondo') show = true;
+                    if (orden === 5 && tipo === 'postre') show = true;
+
+                    if (show) {
+                        const opt = document.createElement('option');
+                        opt.value = p.id_plato;
+                        opt.textContent = p.nombre + (p.tipo_dieta ? ` (${p.tipo_dieta})` : '');
+                        sel.appendChild(opt);
+                    }
+                });
+            });
+        }
+
+        function renderCalendar(year, month) {
+            currentYear = year;
+            currentMonth = month;
+
+            document.getElementById('calMonthLabel').textContent = `${MONTHS_ES[month]} ${year}`;
+            const container = document.getElementById('jc-calendar');
+            container.innerHTML = '';
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const grid = document.createElement('div');
+            grid.className = 'cal-grid';
+
+            DAYS_ES.forEach(d => {
+                const h = document.createElement('div');
+                h.className = 'cal-header-cell';
+                h.textContent = d;
+                grid.appendChild(h);
+            });
+
+            const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+            const offset   = (firstDay + 6) % 7; // Monday-based
+            for (let i = 0; i < offset; i++) {
+                const blank = document.createElement('div');
+                blank.className = 'cal-day empty';
+                grid.appendChild(blank);
+            }
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const iso  = toIso(year, month, d);
+                const cell = document.createElement('div');
+                const dt   = new Date(year, month, d);
+                dt.setHours(0, 0, 0, 0);
+
+                const past  = dt < today;
+                const isT   = dt.getTime() === today.getTime();
+                const hasMn = !!menusPorFecha[iso];
+
+                cell.className = 'cal-day' + (hasMn ? ' has-menu' : '') + (isT ? ' is-today' : '') + (past ? ' is-past' : '');
+                cell.innerHTML = `<div class="cal-day-num">${d}</div>`;
+
+                if (hasMn) {
+                    const m = menusPorFecha[iso];
+                    cell.innerHTML += `<div class="cal-day-label">${m.estado || 'activo'}</div><div class="cal-day-dot"></div>`;
+                } else if (!past) {
+                    cell.innerHTML += `<div class="cal-day-label" style="color:#adb5bd;">Sin menú</div>`;
+                }
+
+                if (!past || hasMn) {
+                    cell.addEventListener('click', () => openDayModal(iso, hasMn ? menusPorFecha[iso] : null));
+                }
+
+                grid.appendChild(cell);
+            }
+
+            container.appendChild(grid);
+        }
+
+        function openDayModal(iso, menuData) {
+            const [y, m, d] = iso.split('-');
+            modalTitle.textContent = `Menú del ${d}/${m}/${y}`;
+            modalFechaDisp.value   = `${d}/${m}/${y}`;
+            modalFechaIso.value    = iso;
+            modalAlert.classList.add('d-none');
+
+            if (menuData) {
+                modalIdMenu.value = menuData.id_menu || '';
+                modalEstado.value = menuData.estado || 'activo';
+                modalBadge.textContent = '✅ Menú existente';
+                modalBadge.className = 'badge fs-6 px-3 py-2 bg-success';
+                modalDeleteBtn.classList.remove('d-none');
+
+                const detalles = menuData.detalles || [];
+                for (let orden = 1; orden <= 5; orden++) {
+                    const det = detalles.find(x => x.orden === orden);
+                    const sel = document.getElementById(`modal-plato-${orden}`);
+                    if (sel) sel.value = det ? det.id_plato : '';
+                }
+
+                const jornada = menuData.jornada || {};
+                modalRacionesPlan.value = jornada.raciones_planificadas || 100;
+                modalRacionesPrep.value = jornada.raciones_preparadas || 0;
+                modalRacionesDisp.value = jornada.raciones_disponibles || 0;
+            } else {
+                modalIdMenu.value = '';
+                modalEstado.value = 'activo';
+                modalBadge.textContent = '🆕 Nuevo menú';
+                modalBadge.className = 'badge fs-6 px-3 py-2 bg-warning text-dark';
+                modalDeleteBtn.classList.add('d-none');
+                document.querySelectorAll('.modal-plato-select').forEach(s => s.value = '');
+                modalRacionesPlan.value = 100;
+                modalRacionesPrep.value = 0;
+                modalRacionesDisp.value = 0;
+            }
+
+            modal.show();
+        }
+
+        function showAlert(type, msg) {
+            modalAlert.className = `alert alert-${type} mt-3`;
+            modalAlert.textContent = msg;
+            modalAlert.classList.remove('d-none');
+        }
+
+        buildPlatoSelects();
+
+        modalSaveBtn.addEventListener('click', async function () {
+            const iso      = modalFechaIso.value;
+            const idMenu   = modalIdMenu.value;
+            const estado   = modalEstado.value;
+            const detalles = [];
+
+            document.querySelectorAll('.modal-plato-select').forEach(sel => {
+                if (sel.value) {
+                    detalles.push({
+                        orden: parseInt(sel.dataset.orden),
+                        id_plato: parseInt(sel.value)
+                    });
                 }
             });
+
+            const payload = {
+                fecha: iso,
+                id_menu: idMenu || null,
+                estado,
+                detalles,
+                raciones_planificadas: parseInt(modalRacionesPlan.value) || 100,
+                raciones_preparadas: parseInt(modalRacionesPrep.value) || 0,
+                raciones_disponibles: parseInt(modalRacionesDisp.value) || 0
+            };
+
+            try {
+                const res = await fetch('/jc/menu/guardar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    menusPorFecha[iso] = data.menu;
+                    showAlert('success', '✅ Menú guardado correctamente.');
+                    setTimeout(() => {
+                        modal.hide();
+                        renderCalendar(currentYear, currentMonth);
+                    }, 800);
+                } else {
+                    showAlert('danger', '❌ Error: ' + (data.error || 'No se pudo guardar'));
+                }
+            } catch (err) {
+                showAlert('danger', '❌ Error de conexión.');
+            }
         });
-    }
-    buildPlatoSelects();
 
-    /* ── Render calendar ── */
-    function renderCalendar(year, month) {
-        currentYear = year; currentMonth = month;
-        document.getElementById('calMonthLabel').textContent = `${MONTHS_ES[month]} ${year}`;
-        const container = document.getElementById('jc-calendar');
-        container.innerHTML = '';
+        modalDeleteBtn.addEventListener('click', async function () {
+            if (!confirm('¿Eliminar el menú de este día?')) return;
 
-        const today = new Date(); today.setHours(0,0,0,0);
+            const iso = modalFechaIso.value;
+            const idMenu = modalIdMenu.value;
 
-        // Header
-        const grid = document.createElement('div');
-        grid.className = 'cal-grid';
-        DAYS_ES.forEach(d => {
-            const h = document.createElement('div');
-            h.className = 'cal-header-cell'; h.textContent = d;
-            grid.appendChild(h);
+            try {
+                const res = await fetch('/jc/menu/eliminar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_menu: idMenu })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    delete menusPorFecha[iso];
+                    showAlert('success', '🗑 Menú eliminado.');
+                    setTimeout(() => {
+                        modal.hide();
+                        renderCalendar(currentYear, currentMonth);
+                    }, 800);
+                } else {
+                    showAlert('danger', '❌ Error: ' + (data.error || 'No se pudo eliminar'));
+                }
+            } catch {
+                showAlert('danger', '❌ Error de conexión.');
+            }
         });
 
-        // Blank cells for first day offset (Mon=0)
-        const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-        const offset   = (firstDay + 6) % 7; // convert to Mon-based
-        for (let i = 0; i < offset; i++) {
-            const blank = document.createElement('div');
-            blank.className = 'cal-day empty';
-            grid.appendChild(blank);
-        }
-
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        for (let d = 1; d <= daysInMonth; d++) {
-            const iso  = toIso(year, month, d);
-            const cell = document.createElement('div');
-            const dt   = new Date(year, month, d); dt.setHours(0,0,0,0);
-            const past = dt < today;
-            const isT  = dt.getTime() === today.getTime();
-            const hasMn = !!menusPorFecha[iso];
-
-            cell.className = 'cal-day' + (hasMn ? ' has-menu' : '') + (isT ? ' is-today' : '') + (past ? ' is-past' : '');
-            cell.innerHTML  = `<div class="cal-day-num">${d}</div>`;
-            if (hasMn) {
-                const m = menusPorFecha[iso];
-                cell.innerHTML += `<div class="cal-day-label">${m.estado || 'activo'}</div><div class="cal-day-dot"></div>`;
-            } else if (!past) {
-                cell.innerHTML += `<div class="cal-day-label" style="color:#adb5bd;">Sin menú</div>`;
+        document.getElementById('prevMonthBtn').addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
             }
-
-            if (!past || hasMn) {
-                cell.addEventListener('click', () => openDayModal(iso, hasMn ? menusPorFecha[iso] : null));
-            }
-            grid.appendChild(cell);
-        }
-        container.appendChild(grid);
-    }
-
-    /* ── Open modal for a day ── */
-    function openDayModal(iso, menuData) {
-        const [y, m, d] = iso.split('-');
-        modalTitle.textContent       = `Menú del ${d}/${m}/${y}`;
-        modalFechaDisp.value         = `${d}/${m}/${y}`;
-        modalFechaIso.value          = iso;
-        modalAlert.classList.add('d-none');
-
-        if (menuData) {
-            modalIdMenu.value = menuData.id_menu || '';
-            modalEstado.value = menuData.estado  || 'activo';
-            modalBadge.textContent  = '✅ Menú existente';
-            modalBadge.className    = 'badge fs-6 px-3 py-2 bg-success';
-            modalDeleteBtn.classList.remove('d-none');
-
-            // Fill plato selects
-            const detalles = menuData.detalles || [];
-            for (let orden = 1; orden <= 5; orden++) {
-                const det = detalles.find(x => x.orden === orden);
-                const sel = document.getElementById(`modal-plato-${orden}`);
-                if (sel) sel.value = det ? det.id_plato : '';
-            }
-
-            // Fill jornada
-            const jornada = menuData.jornada || {};
-            modalRacionesPlan.value = jornada.raciones_planificadas || 100;
-            modalRacionesPrep.value = jornada.raciones_preparadas   || 0;
-            modalRacionesDisp.value = jornada.raciones_disponibles  || 0;
-        } else {
-            modalIdMenu.value       = '';
-            modalEstado.value       = 'activo';
-            modalBadge.textContent  = '🆕 Nuevo menú';
-            modalBadge.className    = 'badge fs-6 px-3 py-2 bg-warning text-dark';
-            modalDeleteBtn.classList.add('d-none');
-            document.querySelectorAll('.modal-plato-select').forEach(s => s.value = '');
-            modalRacionesPlan.value = 100;
-            modalRacionesPrep.value = 0;
-            modalRacionesDisp.value = 0;
-        }
-        modal.show();
-    }
-
-    /* ── Save ── */
-    modalSaveBtn.addEventListener('click', async function () {
-        const iso       = modalFechaIso.value;
-        const idMenu    = modalIdMenu.value;
-        const estado    = modalEstado.value;
-        const detalles  = [];
-        document.querySelectorAll('.modal-plato-select').forEach(sel => {
-            if (sel.value) detalles.push({ orden: parseInt(sel.dataset.orden), id_plato: parseInt(sel.value) });
+            renderCalendar(currentYear, currentMonth);
         });
-        const payload = {
-            fecha: iso,
-            id_menu: idMenu || null,
-            estado,
-            detalles,
-            raciones_planificadas: parseInt(modalRacionesPlan.value) || 100,
-            raciones_preparadas:   parseInt(modalRacionesPrep.value) || 0,
-            raciones_disponibles:  parseInt(modalRacionesDisp.value) || 0,
-        };
 
-        try {
-            const res  = await fetch('/jc/menu/guardar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.success) {
-                // Update local cache
-                menusPorFecha[iso] = data.menu;
-                showAlert('success', '✅ Menú guardado correctamente.');
-                setTimeout(() => { modal.hide(); renderCalendar(currentYear, currentMonth); }, 800);
-            } else {
-                showAlert('danger', '❌ Error: ' + (data.error || 'No se pudo guardar'));
+        document.getElementById('nextMonthBtn').addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
             }
-        } catch (err) {
-            showAlert('danger', '❌ Error de conexión.');
-        }
-    });
+            renderCalendar(currentYear, currentMonth);
+        });
 
-    /* ── Delete ── */
-    modalDeleteBtn.addEventListener('click', async function () {
-        if (!confirm('¿Eliminar el menú de este día?')) return;
-        const iso    = modalFechaIso.value;
-        const idMenu = modalIdMenu.value;
-        try {
-            const res  = await fetch('/jc/menu/eliminar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id_menu: idMenu }) });
-            const data = await res.json();
-            if (data.success) {
-                delete menusPorFecha[iso];
-                showAlert('success', '🗑 Menú eliminado.');
-                setTimeout(() => { modal.hide(); renderCalendar(currentYear, currentMonth); }, 800);
-            } else {
-                showAlert('danger', '❌ Error: ' + (data.error || 'No se pudo eliminar'));
-            }
-        } catch { showAlert('danger', '❌ Error de conexión.'); }
-    });
+        const now = new Date();
+        renderCalendar(now.getFullYear(), now.getMonth());
 
-    function showAlert(type, msg) {
-        modalAlert.className = `alert alert-${type} mt-3`;
-        modalAlert.textContent = msg;
-        modalAlert.classList.remove('d-none');
-    }
-
-    /* ── Nav buttons ── */
-    document.getElementById('prevMonthBtn').addEventListener('click', () => {
-        currentMonth--;
-        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-        renderCalendar(currentYear, currentMonth);
-    });
-    document.getElementById('nextMonthBtn').addEventListener('click', () => {
-        currentMonth++;
-        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-        renderCalendar(currentYear, currentMonth);
-    });
-
-    /* ── Init ── */
-    const now = new Date();
-    renderCalendar(now.getFullYear(), now.getMonth());
-
-    // Listen pane:shown to re-render
-    document.getElementById('content-planificacion')?.addEventListener('pane:shown', () => {
-        renderCalendar(currentYear, currentMonth);
-    });
-})();
+        document.getElementById('content-planificacion')?.addEventListener('pane:shown', () => {
+            renderCalendar(currentYear, currentMonth);
+        });
+    })();
+});
 </script>

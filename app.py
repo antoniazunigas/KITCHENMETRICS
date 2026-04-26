@@ -593,6 +593,275 @@ def panel_jefe_cocina():
         **kpis, **listas, **charts, **waste)
 
 
+# ============================================================
+# ENDPOINTS JSON — Panel Jefe de Cocina
+# ============================================================
+
+# ----------------------------------------------------------
+# 1. GUARDAR / CREAR menú del día (planificación)
+# ----------------------------------------------------------
+@app.route('/jc/menu/guardar', methods=['POST'])
+@login_required(role='jefe_cocina')
+def jc_menu_guardar():
+    """
+    Recibe: { fecha, id_menu (null si nuevo), estado,
+              detalles: [{orden, id_plato}],
+              raciones_planificadas, raciones_preparadas, raciones_disponibles }
+    Devuelve: { success, menu: {id_menu, estado, detalles, jornada} }
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+
+    fecha_str          = data.get('fecha')
+    id_menu            = data.get('id_menu')
+    estado             = data.get('estado', 'activo')
+    detalles_payload   = data.get('detalles', [])
+    raciones_plan      = int(data.get('raciones_planificadas', 100))
+    raciones_prep      = int(data.get('raciones_preparadas', 0))
+    raciones_disp      = int(data.get('raciones_disponibles', 0))
+
+    if not fecha_str:
+        return jsonify({'success': False, 'error': 'Fecha requerida'}), 400
+
+    try:
+        fecha_obj = date.fromisoformat(fecha_str)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Fecha inválida'}), 400
+
+    try:
+        # ── Obtener o crear MenuDia ──
+        if id_menu:
+            menu = db.session.get(MenuDia, int(id_menu))
+            if not menu:
+                return jsonify({'success': False, 'error': 'Menú no encontrado'}), 404
+            menu.estado = estado
+        else:
+            # Verificar si ya existe un menú para esa fecha
+            menu = MenuDia.query.filter_by(fecha=fecha_obj).first()
+            if menu:
+                menu.estado = estado
+            else:
+                menu = MenuDia(fecha=fecha_obj, estado=estado)
+                db.session.add(menu)
+                db.session.flush()   # necesitamos el id_menu antes de los detalles
+
+        # ── Actualizar detalles (borrar y reinsertar) ──
+        MenuDetalle.query.filter_by(id_menu=menu.id_menu).delete()
+        for det in detalles_payload:
+            nuevo_det = MenuDetalle(
+                id_menu=menu.id_menu,
+                id_plato=int(det['id_plato']),
+                orden=int(det['orden'])
+            )
+            db.session.add(nuevo_det)
+
+        # ── Obtener o crear JornadaCocina ──
+        jornada = JornadaCocina.query.filter_by(id_menu=menu.id_menu).first()
+        if jornada:
+            jornada.raciones_planificadas = raciones_plan
+            jornada.raciones_preparadas   = raciones_prep
+            jornada.raciones_disponibles  = raciones_disp
+        else:
+            jornada = JornadaCocina(
+                id_menu=menu.id_menu,
+                raciones_planificadas=raciones_plan,
+                raciones_preparadas=raciones_prep,
+                raciones_disponibles=raciones_disp
+            )
+            db.session.add(jornada)
+
+        db.session.commit()
+
+        # ── Construir respuesta para actualizar el calendário en JS ──
+        detalles_resp = [{'orden': d.orden, 'id_plato': d.id_plato} for d in
+                         MenuDetalle.query.filter_by(id_menu=menu.id_menu).all()]
+        menu_resp = {
+            'id_menu': menu.id_menu,
+            'estado': menu.estado,
+            'detalles': detalles_resp,
+            'jornada': {
+                'raciones_planificadas': jornada.raciones_planificadas,
+                'raciones_preparadas':   jornada.raciones_preparadas,
+                'raciones_disponibles':  jornada.raciones_disponibles,
+            }
+        }
+        return jsonify({'success': True, 'menu': menu_resp})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ----------------------------------------------------------
+# 2. ELIMINAR menú del día
+# ----------------------------------------------------------
+@app.route('/jc/menu/eliminar', methods=['POST'])
+@login_required(role='jefe_cocina')
+def jc_menu_eliminar():
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    id_menu = data.get('id_menu')
+
+    if not id_menu:
+        return jsonify({'success': False, 'error': 'id_menu requerido'}), 400
+
+    menu = db.session.get(MenuDia, int(id_menu))
+    if not menu:
+        return jsonify({'success': False, 'error': 'Menú no encontrado'}), 404
+
+    try:
+        # 🔴 VALIDACIÓN CLAVE
+        jornadas_con_reservas = [
+            j for j in menu.jornadas if j.reservas
+        ]
+
+        if jornadas_con_reservas:
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar el menú porque tiene reservas asociadas.'
+            }), 400
+
+        # 🧹 borrar detalles
+        MenuDetalle.query.filter_by(id_menu=menu.id_menu).delete()
+
+        # 🧹 borrar jornadas (todas, ya que no tienen reservas)
+        for j in menu.jornadas:
+            db.session.delete(j)
+
+        # 🧹 borrar menú
+        db.session.delete(menu)
+
+        db.session.commit()
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ----------------------------------------------------------
+# 3. REGISTRAR merma de ingrediente (por lote)
+# ----------------------------------------------------------
+@app.route('/jc/merma/ingrediente/registrar', methods=['POST'])
+@login_required(role='jefe_cocina')
+def jc_merma_ingrediente_registrar():
+    """
+    Recibe: { fecha, id_lote, cantidad, costo_perdido, motivo }
+    Devuelve: { success }
+    Además descuenta la cantidad del stock del lote.
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+
+    fecha_str     = data.get('fecha')
+    id_lote       = data.get('id_lote')
+    cantidad      = data.get('cantidad')
+    costo_perdido = data.get('costo_perdido', 0)
+    motivo        = data.get('motivo', 'otro')
+
+    if not all([fecha_str, id_lote, cantidad]):
+        return jsonify({'success': False, 'error': 'Faltan campos obligatorios'}), 400
+
+    try:
+        fecha_obj = date.fromisoformat(fecha_str)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Fecha inválida'}), 400
+
+    lote = db.session.get(LoteIngrediente, int(id_lote))
+    if not lote:
+        return jsonify({'success': False, 'error': 'Lote no encontrado'}), 404
+
+    cantidad_float = float(cantidad)
+    if cantidad_float <= 0:
+        return jsonify({'success': False, 'error': 'La cantidad debe ser mayor que cero'}), 400
+
+    if float(lote.cantidad_disponible) < cantidad_float:
+        return jsonify({'success': False,
+                        'error': f'Stock insuficiente. Disponible: {lote.cantidad_disponible}'}), 400
+
+    try:
+        # Registrar merma
+        nueva_merma = MermaIngrediente(
+            id_lote=lote.id_lote,
+            fecha=fecha_obj,
+            cantidad=cantidad_float,
+            costo_perdido=float(costo_perdido),
+            motivo=motivo
+        )
+        db.session.add(nueva_merma)
+
+        # Descontar del stock del lote
+        lote.cantidad_disponible = float(lote.cantidad_disponible) - cantidad_float
+
+        db.session.commit()
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ----------------------------------------------------------
+# 4. REGISTRAR merma de platos preparados no consumidos
+# ----------------------------------------------------------
+@app.route('/jc/merma/plato/registrar', methods=['POST'])
+@login_required(role='jefe_cocina')
+def jc_merma_plato_registrar():
+    """
+    Recibe: { fecha, id_jornada (opcional), cantidad_raciones, costo_perdido, motivo }
+    Devuelve: { success }
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+
+    fecha_str         = data.get('fecha')
+    id_jornada        = data.get('id_jornada')
+    cantidad_raciones = data.get('cantidad_raciones')
+    costo_perdido     = data.get('costo_perdido', 0)
+    motivo            = data.get('motivo', 'sobrante')
+
+    if not all([fecha_str, cantidad_raciones]):
+        return jsonify({'success': False, 'error': 'Faltan campos obligatorios'}), 400
+
+    try:
+        fecha_obj = date.fromisoformat(fecha_str)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Fecha inválida'}), 400
+
+    cantidad_int = int(cantidad_raciones)
+    if cantidad_int <= 0:
+        return jsonify({'success': False, 'error': 'La cantidad debe ser mayor que cero'}), 400
+
+    # Si no se pasó id_jornada, intentar inferirlo por fecha
+    if not id_jornada:
+        menu = MenuDia.query.filter_by(fecha=fecha_obj).first()
+        if menu and menu.jornadas:
+            id_jornada = menu.jornadas[0].id_jornada
+
+    if not id_jornada:
+        return jsonify({'success': False,
+                        'error': 'No se encontró jornada para esa fecha. Selecciónala manualmente.'}), 400
+
+    jornada = db.session.get(JornadaCocina, int(id_jornada))
+    if not jornada:
+        return jsonify({'success': False, 'error': 'Jornada no encontrada'}), 404
+
+    try:
+        nueva_merma = MermaPreparada(
+            id_jornada=jornada.id_jornada,
+            fecha=fecha_obj,
+            cantidad_raciones=cantidad_int,
+            costo_perdido=float(costo_perdido),
+            motivo=motivo
+        )
+        db.session.add(nueva_merma)
+        db.session.commit()
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
