@@ -151,7 +151,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // =========================
     // Navegación entre tabs (sidebar)
+    // =========================
     const navItems = document.querySelectorAll('.sidebar .nav-item');
     const panes = document.querySelectorAll('.content-pane');
 
@@ -172,6 +174,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 pane.classList.remove('d-none');
                 pane.classList.add('fade-in');
                 setTimeout(() => pane.classList.remove('fade-in'), 350);
+
+                // Notificar al pane que ya es visible
+                pane.dispatchEvent(new CustomEvent('pane:shown'));
             }
         });
     });
