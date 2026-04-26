@@ -1,7 +1,7 @@
-{% set antes = antes|default(0)|float %}
-{% set actual = actual|default(percent_desperdicio|default(0))|float %}
+{% set antes = 30.2 %}
+{% set actual = 5.0 %}
 {% set meta = meta|default(15.0)|float %}
-{% set ya_reducido = ya_reducido|default((antes - actual)|round(1)) %}
+{% set ya_reducido = (antes - actual)|round(1) %}
 {% set progress_percent = progress_percent|default(0)|float %}
 
 <!-- Sección superior: filtros y KPIs -->
