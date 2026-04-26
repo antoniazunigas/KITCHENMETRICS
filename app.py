@@ -208,7 +208,7 @@ def login():
         session['user_id'] = user.id_usuario
         session['user_rol'] = user.rol.nombre.lower()
         session['user_nombre'] = user.nombre
-        destinos = {'admin': 'admin_dashboard_principal', 'jefe_cocina': 'panel_jefe_cocina', 'funcionario': 'panel_funcionario'}
+        destinos = {'admin': 'admin_dashboard_principal', 'jefe_cocina': 'panel_jefe_cocina', 'funcionario': 'panel_funcionario', 'cocina': 'panel_cocina'}
         return redirect(url_for(destinos.get(session['user_rol'], 'index')))
     flash("Credenciales incorrectas.", "danger")
     return redirect(url_for('index'))
