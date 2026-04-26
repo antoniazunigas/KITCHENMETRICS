@@ -55,10 +55,16 @@ SELECT
     'Test',
     'user' || gs || '@mail.com',
     '1234',
-    floor(random() * 5)::int,
-    CASE WHEN random() > 0.8 THEN 'bloqueado' ELSE 'activo' END
-FROM generate_series(11, 150) AS gs
+    faltas.faltas_acumuladas,
+    CASE WHEN faltas.faltas_acumuladas >= 3 THEN 'bloqueado' ELSE 'activo' END
+FROM (
+    SELECT gs, floor(random() * 5)::int AS faltas_acumuladas
+    FROM generate_series(11, 150) AS gs
+) AS faltas
 ON CONFLICT (id_usuario) DO NOTHING;
+
+UPDATE usuario
+SET estado = CASE WHEN faltas_acumuladas >= 3 THEN 'bloqueado' ELSE 'activo' END;
 
 -- =========================================================
 -- 4. INGREDIENTES
