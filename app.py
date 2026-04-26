@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from flask import Response, request
 import csv
 import io
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 import services.dashboard_service as dashboard_service
@@ -45,6 +46,11 @@ class Usuario(db.Model):
     estado = db.Column(db.String(10), nullable=False, default="activo")
     rol = db.relationship("Rol", back_populates="usuarios")
     reservas = db.relationship("Reserva", back_populates="usuario")
+# hashing
+    def set_password(self, password):
+        self.contrasena = generate_password_hash(password)
+    def check_password(self, password):
+        return check_password_hash(self.contrasena, password)
 
 class MenuDia(db.Model):
     __tablename__ = "menu_dia"
@@ -197,7 +203,7 @@ def login():
     email_raw = request.form.get('email').strip().lower()
     pass_raw = request.form.get('password')
     user = Usuario.query.filter_by(email=email_raw).first()
-    if user and user.contrasena == pass_raw:
+    if user and user.check_password(pass_raw):
         session['user_id'] = user.id_usuario
         session['user_rol'] = user.rol.nombre.lower()
         session['user_nombre'] = user.nombre
@@ -303,36 +309,97 @@ def admin_dashboard_principal():
 def admin_usuario_crear():
     try:
         id_rol = request.form.get('id_rol', type=int)
-        rut, nombre, apellido = (request.form.get(f, '').strip() for f in ['rut','nombre','apellido'])
-        email, contrasena = request.form.get('email','').strip().lower(), request.form.get('contrasena','').strip()
-        faltas_acumuladas, estado = request.form.get('faltas_acumuladas', type=int) or 0, request.form.get('estado','activo').strip().lower()
-        if not all([id_rol, rut, nombre, apellido, email, contrasena]): flash("Completa todos los campos obligatorios.","warning"); return redirect(request.referrer or url_for('admin_dashboard_principal'))
-        if not db.session.get(Rol, id_rol): flash("El rol seleccionado no existe.","danger"); return redirect(request.referrer or url_for('admin_dashboard_principal'))
-        db.session.add(Usuario(id_rol=id_rol, rut=rut, nombre=nombre, apellido=apellido, email=email, contrasena=contrasena, faltas_acumuladas=faltas_acumuladas, estado=estado))
-        db.session.commit(); flash("Usuario creado correctamente.","success")
-    except IntegrityError: db.session.rollback(); flash("No se pudo crear el usuario. Revisa RUT o email duplicado.","danger")
-    except Exception: db.session.rollback(); flash("Ocurrió un error al crear el usuario.","danger")
+        rut, nombre, apellido = (request.form.get(f, '').strip() for f in ['rut', 'nombre', 'apellido'])
+        email = request.form.get('email', '').strip().lower()
+        contrasena = request.form.get('contrasena', '').strip()
+        faltas_acumuladas = request.form.get('faltas_acumuladas', type=int) or 0
+        estado = request.form.get('estado', 'activo').strip().lower()
+
+        if not all([id_rol, rut, nombre, apellido, email, contrasena]):
+            flash("Completa todos los campos obligatorios.", "warning")
+            return redirect(request.referrer or url_for('admin_dashboard_principal'))
+
+        if not db.session.get(Rol, id_rol):
+            flash("El rol seleccionado no existe.", "danger")
+            return redirect(request.referrer or url_for('admin_dashboard_principal'))
+
+        # Creamos la instancia sin la contraseña inicialmente
+        nuevo_usuario = Usuario(
+            id_rol=id_rol, 
+            rut=rut, 
+            nombre=nombre, 
+            apellido=apellido, 
+            email=email, 
+            faltas_acumuladas=faltas_acumuladas, 
+            estado=estado
+        )
+        
+        # Hasheamos la contraseña usando el método del modelo
+        nuevo_usuario.set_password(contrasena)
+        
+        db.session.add(nuevo_usuario)
+        db.session.commit()
+        flash("Usuario creado correctamente.", "success")
+
+    except IntegrityError:
+        db.session.rollback()
+        flash("No se pudo crear el usuario. Revisa RUT o email duplicado.", "danger")
+    except Exception:
+        db.session.rollback()
+        flash("Ocurrió un error al crear el usuario.", "danger")
+        
     return redirect(request.referrer or url_for('admin_dashboard_principal'))
 
 @app.route('/admin/usuario/editar/<int:id_usuario>', methods=['POST'])
 @login_required(role='admin')
 def admin_usuario_editar(id_usuario):
     usuario = db.session.get(Usuario, id_usuario)
-    if not usuario: flash("Usuario no encontrado.","danger"); return redirect(request.referrer or url_for('admin_dashboard_principal'))
+    if not usuario:
+        flash("Usuario no encontrado.", "danger")
+        return redirect(request.referrer or url_for('admin_dashboard_principal'))
+
     try:
         id_rol = request.form.get('id_rol', type=int)
-        rut, nombre, apellido = (request.form.get(f, '').strip() for f in ['rut','nombre','apellido'])
-        email, contrasena = request.form.get('email','').strip().lower(), request.form.get('contrasena','').strip()
-        faltas_acumuladas, estado = request.form.get('faltas_acumuladas', type=int), request.form.get('estado','').strip().lower()
-        if not all([id_rol, rut, nombre, apellido, email]): flash("Completa los campos obligatorios.","warning"); return redirect(request.referrer or url_for('admin_dashboard_principal'))
-        if not db.session.get(Rol, id_rol): flash("El rol seleccionado no existe.","danger"); return redirect(request.referrer or url_for('admin_dashboard_principal'))
-        usuario.id_rol, usuario.rut, usuario.nombre, usuario.apellido, usuario.email = id_rol, rut, nombre, apellido, email
-        if contrasena: usuario.contrasena = contrasena
-        if faltas_acumuladas is not None: usuario.faltas_acumuladas = faltas_acumuladas
-        if estado: usuario.estado = estado
-        db.session.commit(); flash("Usuario actualizado correctamente.","success")
-    except IntegrityError: db.session.rollback(); flash("No se pudo actualizar. RUT o email duplicado.","danger")
-    except Exception: db.session.rollback(); flash("Ocurrió un error al actualizar el usuario.","danger")
+        rut, nombre, apellido = (request.form.get(f, '').strip() for f in ['rut', 'nombre', 'apellido'])
+        email = request.form.get('email', '').strip().lower()
+        contrasena = request.form.get('contrasena', '').strip()
+        faltas_acumuladas = request.form.get('faltas_acumuladas', type=int)
+        estado = request.form.get('estado', '').strip().lower()
+
+        if not all([id_rol, rut, nombre, apellido, email]):
+            flash("Completa los campos obligatorios.", "warning")
+            return redirect(request.referrer or url_for('admin_dashboard_principal'))
+
+        if not db.session.get(Rol, id_rol):
+            flash("El rol seleccionado no existe.", "danger")
+            return redirect(request.referrer or url_for('admin_dashboard_principal'))
+
+        # Actualizamos datos básicos
+        usuario.id_rol = id_rol
+        usuario.rut = rut
+        usuario.nombre = nombre
+        usuario.apellido = apellido
+        usuario.email = email
+        
+        # Hashear solo si se ingresó una nueva contraseña en el formulario
+        if contrasena:
+            usuario.set_password(contrasena)
+            
+        if faltas_acumuladas is not None:
+            usuario.faltas_acumuladas = faltas_acumuladas
+        if estado:
+            usuario.estado = estado
+
+        db.session.commit()
+        flash("Usuario actualizado correctamente.", "success")
+
+    except IntegrityError:
+        db.session.rollback()
+        flash("No se pudo actualizar. RUT o email duplicado.", "danger")
+    except Exception:
+        db.session.rollback()
+        flash("Ocurrió un error al actualizar el usuario.", "danger")
+        
     return redirect(request.referrer or url_for('admin_dashboard_principal'))
 
 @app.route('/admin/usuario/eliminar/<int:id_usuario>', methods=['POST'])
