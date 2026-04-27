@@ -29,7 +29,7 @@
 
         <div class="card">
             <h2>🍴 Reserva de Almuerzo Anticipada</h2>
-            <p class="text-muted">Selecciona tu menú para el servicio de mañana.</p>
+            <p class="text-muted">Selecciona **una** de las opciones disponibles para el servicio de mañana.</p>
 
             <div class="table-responsive">
                 <table>
@@ -40,60 +40,79 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% if jornadas %}
-                            {% for jornada in jornadas %}
-                            {% set num_opcion = loop.index %}
-                            <tr>
-                                <td>
-                                    <strong>🍱 Opción {{ num_opcion }}</strong><br>
-                                    <div style="margin-top: 8px; line-height: 1.6;">
-                                        {% if jornada.menu_dia and jornada.menu_dia.detalles %}
-                                            {% for d in jornada.menu_dia.detalles %}
-                                                
-                                                {# Entrada #}
-                                                {% if d.orden == 1 %}
-                                                    <small style="color: #666; display: block;">🥗 {{ d.plato.nombre }}</small>
-                                                {% endif %}
-                                                
-                                                {# Fondo con Etiqueta Integrada #}
-                                                {% if d.orden > 1 and d.orden < 5 %}
-                                                    <div style="display: flex; align-items: center; gap: 10px; margin: 4px 0;">
-                                                        <span style="color: #2c3e50; font-size: 1.1rem;"><strong>🍲 {{ d.plato.nombre }}</strong></span>
-                                                        
-                                                        {# Lógica de etiqueta (solo una vez) #}
-                                                        {% if d.id_plato == 7 or d.id_plato == 9 or 'vegano' in d.plato.nombre.lower() %}
-                                                            <span style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #d4edda; color: #155724;">VEGANO</span>
-                                                        {% else %}
-                                                            <span style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #e8f4fd; color: #2980b9;">NORMAL</span>
-                                                        {% endif %}
-                                                    </div>
-                                                {% endif %}
-
-                                                {# Postre #}
-                                                {% if d.orden == 5 %}
-                                                    <small style="color: #666; display: block;">🍰 {{ d.plato.nombre }}</small>
-                                                {% endif %}
-
-                                            {% endfor %}
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td class="text-center" style="vertical-align: middle;">
-                                    <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
-                                        <button type="submit" class="btn-action" 
-                                            {% if reserva_activa or jornada.raciones_disponibles == 0 %}
-                                                disabled style="opacity:0.5; cursor:not-allowed; background: #95a5a6; border:none;"
-                                            {% endif %}>
-                                            {% if reserva_activa %} Reservado {% elif jornada.raciones_disponibles == 0 %} Agotado {% else %} Reservar {% endif %}
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
+    {% if jornadas %}
+        {% for jornada in jornadas %}
+            {% if jornada.menu_dia and jornada.menu_dia.detalles %}
+                {# Buscamos todos los platos de fondo (orden 2, 3 y 4) #}
+                {% for d in jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
+                <tr>
+                    <td style="padding: 20px;">
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #2c3e50; font-size: 1.1rem; text-transform: uppercase;">
+                                🍱 Opción {{ loop.index }}
+                            </strong>
+                        </div>
+                        
+                        <div class="detalle-menu-container" style="display: grid; gap: 8px; margin-left: 10px;">
+                            {# 1. ENTRADA (La misma para todas las opciones) #}
+                            {% for e in jornada.menu_dia.detalles if e.orden == 1 %}
+                                <div style="color: #666; font-size: 0.9rem;">
+                                    <span>🥗 ENTRADA:</span> <strong>{{ e.plato.nombre }}</strong>
+                                </div>
                             {% endfor %}
-                        {% else %}
-                            <tr><td colspan="2" style="text-align:center; padding: 20px; color: #7f8c8d;">No hay jornadas disponibles para mañana.</td></tr>
-                        {% endif %}
-                    </tbody>
+                            
+                            {# 2. PLATO DE FONDO ESPECÍFICO DE ESTA FILA #}
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 5px solid #e67e22; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; border-left: 5px solid #e67e22;">
+                                <div>
+                                    <small style="color: #e67e22; font-weight: bold; display: block; text-transform: uppercase; font-size: 0.7rem;">Plato de Fondo</small>
+                                    <span style="font-size: 1.15rem; font-weight: bold; color: #2c3e50;">🍲 {{ d.plato.nombre }}</span>
+                                </div>
+                                
+                                {% if 'vegano' in d.plato.nombre.lower() or 'vegetariana' in d.plato.nombre.lower() or d.id_plato in [7, 9] %}
+                                    <span style="padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #d4edda; color: #155724; border: 1px solid #c3e6cb;">VEGANO</span>
+                                {% else %}
+                                    <span style="padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #e8f4fd; color: #2980b9; border: 1px solid #d1e9f7;">NORMAL</span>
+                                {% endif %}
+                            </div>
+                            
+                            {# 3. POSTRE (El mismo para todas las opciones) #}
+                            {% for p in jornada.menu_dia.detalles if p.orden == 5 %}
+                                <div style="color: #666; font-size: 0.9rem;">
+                                    <span>🍰 POSTRE:</span> <strong>{{ p.plato.nombre }}</strong>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </td>
+
+                    <td class="text-center" style="vertical-align: middle; width: 220px; border-left: 1px solid #eee;">
+                        {# Creamos un botón de reserva independiente para este plato #}
+                        <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
+                            {# Pasamos el ID del plato para que el sistema sepa cuál eligió #}
+                            <input type="hidden" name="id_plato_seleccionado" value="{{ d.id_plato }}">
+                            
+                            <button type="submit" class="btn-action" 
+                                {% if reserva_activa or jornada.raciones_disponibles == 0 %}
+                                    disabled style="opacity:0.6; cursor:not-allowed; background: #bdc3c7; border:none; color: white;"
+                                {% endif %}
+                                style="width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+                                {% if reserva_activa %} 
+                                    ✅ Reservado 
+                                {% elif jornada.raciones_disponibles == 0 %} 
+                                    🚫 Agotado 
+                                {% else %} 
+                                    RESERVAR {{ d.plato.nombre|upper }}
+                                {% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <tr><td colspan="2" style="text-align:center; padding: 50px; color: #95a5a6;">No hay menús programados.</td></tr>
+    {% endif %}
+</tbody>
                 </table>
             </div>
         </div>
@@ -125,7 +144,7 @@
         <div class="card card-exito">
             <div class="exito-contenido">
                 <h3>✅ Tienes una reserva activa</h3>
-                <p>Preséntate en el casino en el horario correspondiente.</p>
+                <p>Preséntate en el casino para retirar tu menú reservado.</p>
                 <form id="form-retirar" action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST" onsubmit="return solicitarPasswordRetiro()">
                     <button type="submit" class="btn-retirado">
                         MARCAR COMO RETIRADO
