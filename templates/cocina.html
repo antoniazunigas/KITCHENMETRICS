@@ -6,11 +6,11 @@
     <title>KitchenMetrics - Panel de Cocina</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
     <style>
-        .merma-form-container { background: #fff3cd; border: 1px solid #ffeeba; padding: 20px; border-radius: 12px; margin-bottom: 30px; }
-        .btn-merma { background: #856404; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-merma:hover { background: #533f03; transform: translateY(-2px); }
-        .input-merma { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
+        /* Estilos optimizados */
         .alerta-flotante { padding: 15px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .production-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .categorias-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
     </style>
 </head>
 <body class="cocina-body">
@@ -83,63 +83,30 @@
             </div>
         </div>
 
-<section class="card insumos-section">
-  <h3 style="margin-bottom: 5px; color: #2c3e50;">⚖️ Insumos Totales Requeridos</h3>
-  <p style="font-size: 0.8rem; color: #888; margin-bottom: 20px;">
-    (Cálculo acumulado basado en las reservas actuales)
-  </p>
+        <section class="card insumos-section">
+          <h3 style="margin-bottom: 5px; color: #2c3e50;">⚖️ Insumos Totales Requeridos</h3>
+          <p style="font-size: 0.8rem; color: #888; margin-bottom: 20px;">
+            (Cálculo acumulado basado en las reservas actuales)
+          </p>
 
-  <div class="categorias-grid">
-    {% for ing, datos in ingredientes.items() %}
-      <div class="grupo-categoria card" style="padding: 15px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 15px;">
-        <h5 class="cat-title" style="margin-bottom: 10px; color:#2c3e50; text-transform: uppercase;">
-          {{ ing }}
-        </h5>
-        <div class="lista-insumos-limpia" style="text-align:center;">
-          <span style="display:block; font-weight:bold; font-size:1.2rem; color:#2c3e50;">
-            {{ "%.2f"|format(datos.cantidad|float) }}
-          </span>
-          <small style="color:#777; font-size:0.9rem;">
-            {{ datos.unidad }}
-          </small>
-        </div>
-      </div>
-    {% endfor %}
-  </div>
-</section>
-
-
-        {% if modo == 'hoy' %}
-        <section class="merma-form-container card shadow-sm">
-            <h3 style="color: #856404; margin-top: 0; font-size: 1.1rem;">📉 Cierre de Jornada: Registro de Merma</h3>
-            <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Seleccione el menú y registre los kilos sobrantes para auditar la eficiencia.</p>
-            <form action="/registrar_merma" method="POST" style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-                <div>
-                    <label style="display:block; font-size: 0.75rem; font-weight: bold; color: #856404;">MENÚ A CERRAR</label>
-                    <select name="id_jornada" class="input-merma" style="width: 380px;" required>
-                        <option value="">-- Seleccione el plato de fondo --</option>
-                        {% for r in reservas | unique(attribute='id_jornada') %}
-                            <option value="{{ r.id_jornada }}">
-                                {% if r.jornada.menu_dia.detalles %}
-                                    {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
-                                        {{ d.plato.nombre }}{% if not loop.last %} + {% endif %}
-                                    {% endfor %}
-                                {% endif %}
-                                (ID: {{ r.id_jornada }})
-                            </option>
-                        {% endfor %}
-                    </select>
+          <div class="categorias-grid">
+            {% for ing, datos in ingredientes.items() %}
+              <div class="grupo-categoria card" style="padding: 15px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 0px;">
+                <h5 class="cat-title" style="margin-bottom: 10px; color:#2c3e50; text-transform: uppercase; font-size: 0.85rem;">
+                  {{ ing }}
+                </h5>
+                <div class="lista-insumos-limpia" style="text-align:center;">
+                  <span style="display:block; font-weight:bold; font-size:1.2rem; color:#2c3e50;">
+                    {{ "%.2f"|format(datos.cantidad|float) }}
+                  </span>
+                  <small style="color:#777; font-size:0.8rem;">
+                    {{ datos.unidad }}
+                  </small>
                 </div>
-                <div>
-                    <label style="display:block; font-size: 0.75rem; font-weight: bold; color: #856404;">KILOS SOBRANTES</label>
-                    <input type="number" name="cantidad_merma" step="0.01" class="input-merma" style="width: 130px;" placeholder="0.00" min="0" required>
-                </div>
-                <div style="padding-top: 15px;">
-                    <button type="submit" class="btn-merma">REGISTRAR EXITOSAMENTE</button>
-                </div>
-            </form>
+              </div>
+            {% endfor %}
+          </div>
         </section>
-        {% endif %}
 
         <section class="card">
             <h3>📋 Lista de Entrega Detallada</h3>
