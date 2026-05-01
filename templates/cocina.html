@@ -5,6 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KitchenMetrics - Panel de Cocina</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
+
+    <!-- ── Estilos del filtro Lista de Entrega (sin tocar cocina.css) ── -->
+    <style>
+        /* Barra de filtros */
+        .entrega-filtros {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            background: rgba(248, 250, 252, 0.70);
+            border: 1px solid rgba(22, 163, 74, 0.12);
+            border-radius: 10px;
+        }
+
+        .entrega-input-busqueda {
+            flex: 1;
+            min-width: 180px;
+            max-width: 280px;
+            padding: 7px 12px;
+            border: 1px solid rgba(203, 213, 225, 0.80);
+            border-radius: 8px;
+            font-size: .83rem;
+            color: var(--km-text);
+            background: #fff;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .entrega-input-busqueda:focus {
+            border-color: rgba(22, 163, 74, 0.50);
+            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+        }
+
+        /* Pills de estado */
+        .entrega-pills {
+            display: flex;
+            gap: 6px;
+        }
+
+        .pill-estado {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: .78rem;
+            font-weight: 700;
+            letter-spacing: .03em;
+            cursor: pointer;
+            border: 1.5px solid rgba(203, 213, 225, 0.80);
+            background: #fff;
+            color: var(--km-muted);
+            transition: background .15s, color .15s, border-color .15s;
+        }
+
+        .pill-estado:hover:not(.active) {
+            border-color: rgba(22, 163, 74, 0.35);
+            color: var(--ck-primary-solid);
+            background: rgba(240, 253, 244, 0.60);
+        }
+
+        .pill-estado.active {
+            background: var(--ck-primary-solid, #16a34a);
+            color: #fff;
+            border-color: var(--ck-primary-solid, #16a34a);
+        }
+
+        .pill-estado[data-filtro="pendiente"].active {
+            background: rgba(100, 116, 139, 0.80);
+            border-color: rgba(100, 116, 139, 0.80);
+        }
+
+        .pill-estado[data-filtro="retirado"].active {
+            background: #166534;
+            border-color: #166534;
+        }
+
+        /* Contador */
+        .entrega-contador {
+            margin-left: auto;
+            font-size: .78rem;
+            color: var(--km-muted);
+            white-space: nowrap;
+        }
+
+        .entrega-contador strong {
+            color: var(--ck-primary-solid, #16a34a);
+        }
+
+        /* Fila vacía cuando no hay resultados */
+        .fila-sin-resultados td {
+            text-align: center;
+            color: var(--km-muted);
+            font-style: italic;
+            font-size: .85rem;
+            padding: 24px 0;
+        }
+    </style>
 </head>
 <body class="cocina-body">
 
@@ -131,6 +228,24 @@
         <!-- ===== LISTA DE ENTREGA DETALLADA ===== -->
         <section class="card">
             <h3 class="section-title" style="border-bottom:none; margin-bottom:16px; color:var(--ck-primary-solid);">📋 Lista de Entrega Detallada</h3>
+
+            <!-- ── Barra de filtros ── -->
+            <div class="entrega-filtros">
+                <input
+                    type="text"
+                    id="filtro-busqueda"
+                    class="entrega-input-busqueda"
+                    placeholder="🔍 Nombre o RUT…"
+                    autocomplete="off"
+                >
+                <div class="entrega-pills">
+                    <button class="pill-estado active" data-filtro="todos">Todos</button>
+                    <button class="pill-estado" data-filtro="pendiente">Pendiente</button>
+                    <button class="pill-estado" data-filtro="retirado">Retirado</button>
+                </div>
+                <span class="entrega-contador" id="entrega-contador"></span>
+            </div>
+
             <table class="tabla-cocina">
                 <thead>
                     <tr>
@@ -139,9 +254,12 @@
                         <th class="col-estado">Estado</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tbody-entregas">
                     {% for r in reservas %}
-                    <tr>
+                    <tr
+                        data-estado="{{ 'retirado' if r.estado in ['consumida', 'retirada'] else 'pendiente' }}"
+                        data-texto="{{ (r.usuario.nombre ~ ' ' ~ r.usuario.apellido ~ ' ' ~ r.usuario.rut)|lower }}"
+                    >
                         <td class="user-cell">
                             <strong>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</strong>
                             <small>{{ r.usuario.rut }}</small>
@@ -170,8 +288,8 @@
                             </div>
                         </td>
                         <td style="text-align:center;">
-                            <span class="badge-estado {{ 'badge-consumida' if r.estado == 'consumida' else 'badge-pendiente' }}">
-                                {{ 'RETIRADO' if r.estado == 'consumida' else 'PENDIENTE' }}
+                            <span class="badge-estado {{ 'badge-consumida' if r.estado in ['consumida', 'retirada'] else 'badge-pendiente' }}">
+                                {{ 'RETIRADO' if r.estado in ['consumida', 'retirada'] else 'PENDIENTE' }}
                             </span>
                         </td>
                     </tr>
@@ -181,5 +299,70 @@
         </section>
 
     </main>
+
+    <!-- ── Lógica del filtro ── -->
+    <script>
+    (function () {
+        const tbody       = document.getElementById('tbody-entregas');
+        const inputBusq   = document.getElementById('filtro-busqueda');
+        const pills       = document.querySelectorAll('.pill-estado');
+        const contador    = document.getElementById('entrega-contador');
+        const filaVacia   = document.createElement('tr');
+
+        filaVacia.className = 'fila-sin-resultados';
+        filaVacia.innerHTML = '<td colspan="3">Sin resultados para los filtros aplicados.</td>';
+
+        let filtroEstado = 'todos';
+        let filtroBusq   = '';
+
+        function aplicarFiltros() {
+            const filas = Array.from(tbody.querySelectorAll('tr:not(.fila-sin-resultados)'));
+            let visibles = 0;
+
+            filas.forEach(function (tr) {
+                const estadoFila = tr.dataset.estado;   // 'pendiente' | 'retirado'
+                const textoFila  = tr.dataset.texto;    // nombre apellido rut en minúsculas
+
+                const pasaEstado = filtroEstado === 'todos' || estadoFila === filtroEstado;
+                const pasaBusq   = filtroBusq === '' || textoFila.includes(filtroBusq);
+
+                const mostrar = pasaEstado && pasaBusq;
+                tr.style.display = mostrar ? '' : 'none';
+                if (mostrar) visibles++;
+            });
+
+            // Fila vacía cuando no hay resultados
+            const yaVacia = tbody.contains(filaVacia);
+            if (visibles === 0) {
+                if (!yaVacia) tbody.appendChild(filaVacia);
+            } else {
+                if (yaVacia) tbody.removeChild(filaVacia);
+            }
+
+            // Actualizar contador
+            contador.innerHTML = 'Mostrando <strong>' + visibles + '</strong> de <strong>' + filas.length + '</strong>';
+        }
+
+        // Input de búsqueda
+        inputBusq.addEventListener('input', function () {
+            filtroBusq = this.value.trim().toLowerCase();
+            aplicarFiltros();
+        });
+
+        // Pills de estado
+        pills.forEach(function (pill) {
+            pill.addEventListener('click', function () {
+                pills.forEach(function (p) { p.classList.remove('active'); });
+                this.classList.add('active');
+                filtroEstado = this.dataset.filtro;
+                aplicarFiltros();
+            });
+        });
+
+        // Inicializar contador al cargar
+        aplicarFiltros();
+    })();
+    </script>
+
 </body>
 </html>
