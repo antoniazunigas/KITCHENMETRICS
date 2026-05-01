@@ -188,14 +188,14 @@
         </div>
       </div>
 
-      <div class="user-dynamic-section d-none" data-section="espacio">
+      <!-- <div class="user-dynamic-section d-none" data-section="espacio">
         <div class="chart-placeholder d-flex align-items-center justify-content-center p-5">
           <div class="text-center text-muted">
             <div class="fw-semibold">Espacio dinámico</div>
-            <div class="small">Aquí puedes montar un gráfico, una tabla o un resumen avanzado.</div>
+            <div class="small">gráficoss??</div>
           </div>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 
@@ -204,7 +204,6 @@
     <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
       <div>
         <h5 class="mb-1">Lista de usuarios</h5>
-        <div class="text-muted small">Vista en lista, responsive y simple.</div>
       </div>
 
       <button
@@ -426,116 +425,3 @@
   </div>
 </div>
 
-<script>
-(function () {
-  const searchInput = document.getElementById('usuariosSearch');
-  const clearBtn = document.getElementById('clearUsuariosSearch');
-  const toggleBtn = document.getElementById('toggleUsuariosBtn');
-  const rows = Array.from(document.querySelectorAll('.usuario-row'));
-  const shownCountEl = document.getElementById('shownUsersCount');
-  const totalCountEl = document.getElementById('totalUsersCount');
-
-  const editForm = document.getElementById('editUserForm');
-  const editRol = document.getElementById('edit_id_rol');
-  const editRut = document.getElementById('edit_rut');
-  const editNombre = document.getElementById('edit_nombre');
-  const editApellido = document.getElementById('edit_apellido');
-  const editEmail = document.getElementById('edit_email');
-  const editContrasena = document.getElementById('edit_contrasena');
-  const editFaltas = document.getElementById('edit_faltas');
-  const editEstado = document.getElementById('edit_estado');
-
-  const dynamicBtns = Array.from(document.querySelectorAll('.user-view-btn'));
-  const dynamicSections = Array.from(document.querySelectorAll('.user-dynamic-section'));
-
-  const deleteForm = document.getElementById('deleteUserForm');
-  const deleteName = document.getElementById('deleteUserName');
-
-  let expanded = false;
-
-  function applyFilter() {
-    const term = (searchInput.value || '').trim().toLowerCase();
-    let shown = 0;
-
-    rows.forEach((row, index) => {
-      const name = row.dataset.name || '';
-      const rut = row.dataset.rut || '';
-      const email = row.dataset.email || '';
-
-      const matchesSearch = !term || name.includes(term) || rut.includes(term) || email.includes(term);
-      const matchesExpand = expanded || index < 10;
-
-      const visible = matchesSearch && matchesExpand;
-      row.classList.toggle('d-none', !visible);
-
-      if (visible) shown++;
-    });
-
-    if (shownCountEl) shownCountEl.textContent = shown;
-    if (totalCountEl) totalCountEl.textContent = rows.length;
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener('input', applyFilter);
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', function () {
-      searchInput.value = '';
-      expanded = false;
-      if (toggleBtn) toggleBtn.textContent = 'Mostrar más';
-      applyFilter();
-    });
-  }
-
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', function () {
-      expanded = !expanded;
-      toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
-      applyFilter();
-    });
-  }
-
-  document.querySelectorAll('.edit-user-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      editForm.action = `/admin/usuario/editar/${id}`;
-      editRol.value = btn.dataset.rol || '';
-      editRut.value = btn.dataset.rut || '';
-      editNombre.value = btn.dataset.nombre || '';
-      editApellido.value = btn.dataset.apellido || '';
-      editEmail.value = btn.dataset.email || '';
-      editContrasena.value = '';
-      editFaltas.value = btn.dataset.faltas || 0;
-      editEstado.value = btn.dataset.estado || 'activo';
-    });
-  });
-
-  document.querySelectorAll('.delete-user-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      const nombre = btn.dataset.nombre || '';
-
-      if (deleteForm) deleteForm.action = `/admin/usuario/eliminar/${id}`;
-      if (deleteName) deleteName.textContent = nombre;
-    });
-  });
-
-  function showSection(sectionName) {
-    dynamicSections.forEach((section) => {
-      section.classList.toggle('d-none', section.dataset.section !== sectionName);
-    });
-
-    dynamicBtns.forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.view === sectionName);
-    });
-  }
-
-  dynamicBtns.forEach((btn) => {
-    btn.addEventListener('click', () => showSection(btn.dataset.view));
-  });
-
-  showSection('resumen');
-  applyFilter();
-})();
-</script>
