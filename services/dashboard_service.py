@@ -79,7 +79,7 @@ def calculate_dashboard_kpis(start_date, today, prev_start, prev_end, current_re
     db, Reserva, JornadaCocina, MenuDia, MermaIngrediente, MermaPreparada, LoteIngrediente, Ingrediente, Usuario, Rol = _app_objects()
 
     total_reservas = current_reservas.count()
-    consumidas = current_reservas.filter(Reserva.estado == 'consumida').count()
+    consumidas = current_reservas.filter(Reserva.estado.in_(['consumida', 'retirada'])).count()
 
     def _get_merma(inicio, fin):
         
@@ -194,7 +194,7 @@ def generate_dashboard_charts(start_date, today):
         .filter(
             MenuDia.fecha >= start_date,
             MenuDia.fecha <= today,
-            Reserva.estado == 'consumida'
+            Reserva.estado.in_(['consumida', 'retirada'])
         ) \
         .group_by(MenuDia.fecha).all()
     consumidas_by_day = _int_dict_from_rows(rows_consumidas)

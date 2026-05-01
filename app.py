@@ -12,6 +12,8 @@ import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
+import hmac
+import hashlib
 
 import services.dashboard_service as dashboard_service
 
@@ -130,6 +132,7 @@ class Reserva(db.Model):
     id_reserva = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey("usuario.id_usuario"), nullable=False)
     id_jornada = db.Column(db.Integer, db.ForeignKey("jornada_cocina.id_jornada"), nullable=False)
+    id_plato_fondo = db.Column(db.Integer, db.ForeignKey("plato.id_plato"), nullable=True)
     fecha_reserva = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     estado = db.Column(db.String(20), nullable=False, default="confirmada")
     usuario = db.relationship("Usuario", back_populates="reservas")
@@ -226,11 +229,20 @@ def panel_funcionario():
     hoy = date.today()
     limite_hoy = datetime.combine(hoy, datetime.strptime("15:00", "%H:%M").time())
 
-    reservas_vencidas = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
-        Reserva.id_usuario == user.id_usuario,
-        Reserva.estado == 'confirmada',
-        or_(MenuDia.fecha < hoy, (MenuDia.fecha == hoy) & (ahora > limite_hoy))
-    ).all()
+    reservas_vencidas = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user.id_usuario,
+            Reserva.estado == 'confirmada',
+            or_(
+                MenuDia.fecha < hoy,
+                (MenuDia.fecha == hoy) & (ahora > limite_hoy)
+            )
+        )
+        .all()
+    )
 
     if reservas_vencidas:
         for res in reservas_vencidas:
@@ -239,11 +251,48 @@ def panel_funcionario():
         db.session.commit()
 
     manana = hoy + timedelta(days=1)
-    jornadas = db.session.query(JornadaCocina).join(MenuDia).filter(
-        MenuDia.estado == 'activo', MenuDia.fecha == manana
-    ).all()
-    reserva_activa = Reserva.query.filter_by(id_usuario=user.id_usuario, estado='confirmada').first()
-    return render_template('funcionario.html', nombre=session['user_nombre'], jornadas=jornadas, faltas=user.faltas_acumuladas, reserva_activa=reserva_activa)
+    jornadas = (
+        db.session.query(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            MenuDia.estado == 'activo',
+            MenuDia.fecha == manana
+        )
+        .all()
+    )
+
+    reserva_activa = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user.id_usuario,
+            Reserva.estado == 'confirmada',
+            MenuDia.fecha == hoy          # solo HOY → card del QR
+        )
+        .first()
+    )
+
+    reserva_manana = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user.id_usuario,
+            Reserva.estado == 'confirmada',
+            MenuDia.fecha == manana       # solo MAÑANA → deshabilita botones
+        )
+        .first()
+    )
+
+    return render_template(
+        'funcionario.html',
+        nombre=session['user_nombre'],
+        jornadas=jornadas,
+        faltas=user.faltas_acumuladas,
+        reserva_activa=reserva_activa,
+        reserva_manana=reserva_manana
+    )
 
 @app.route('/reservar/<int:id_jornada>', methods=['POST'])
 @login_required(role='funcionario')
@@ -253,8 +302,14 @@ def reservar(id_jornada):
         flash("Sin cupos disponibles para este menú.", "warning")
         return redirect(url_for('panel_funcionario'))
 
+    id_plato = request.form.get('id_plato_seleccionado', type=int)
+
     try:
-        nueva_reserva = Reserva(id_usuario=session['user_id'], id_jornada=id_jornada)
+        nueva_reserva = Reserva(
+            id_usuario=session['user_id'],
+            id_jornada=id_jornada,
+            id_plato_fondo=id_plato
+        )
         jornada.raciones_disponibles -= 1
         db.session.add(nueva_reserva)
         db.session.commit()
@@ -272,12 +327,12 @@ def retirar(id_reserva):
     user = Usuario.query.get(session['user_id'])
     pass_confirm = request.form.get('password_confirmacion')
     if reserva and user.contrasena == pass_confirm:
-        reserva.estado = 'consumida'
+        reserva.estado = 'retirada'
         db.session.commit()
-        flash("Retiro confirmado.", "success")
+        return redirect(url_for('panel_funcionario', retirado='1'))
     else:
         flash("Clave incorrecta.", "danger")
-    return redirect(url_for('panel_funcionario'))
+        return redirect(url_for('panel_funcionario'))
 
 @app.route('/admin')
 @login_required(role='admin')
@@ -605,7 +660,8 @@ def panel_cocina():
         fecha_ver=fecha_consulta,
         titulo=titulo_panel,
         modo=modo,
-        datetime=datetime
+        datetime=datetime,
+        qr_token_dia=_generar_token_dia()
     )
 
 
@@ -967,6 +1023,82 @@ def jc_merma_plato_registrar():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# ENDPOINTS JSON — Panel Cocina (QR dinámico para retiro sin contacto)
+# ============================================================
+
+def _generar_token_dia():
+    """
+    Genera un token HMAC-SHA256 basado en la fecha de HOY y el secret_key.
+    Cambia automáticamente cada día. No requiere BD.
+    """
+    fecha_str = date.today().isoformat()          # ej: "2026-04-30"
+    token = hmac.new(
+        app.secret_key.encode(),
+        fecha_str.encode(),
+        hashlib.sha256
+    ).hexdigest()[:16]                             # 16 chars, suficiente para un QR
+    return token
+ 
+ 
+@app.route('/qr/token-dia')
+@login_required(role='cocina')
+def qr_token_dia():
+    """
+    Devuelve el token del día como JSON.
+    Lo usa cocina.html para generar el QR vía api.qrserver.com.
+    """
+    from flask import jsonify
+    return jsonify({'token': _generar_token_dia(), 'fecha': date.today().isoformat()})
+ 
+ 
+@app.route('/retirar_qr', methods=['POST'])
+@login_required(role='funcionario')
+def retirar_qr():
+    """
+    El funcionario escanea el QR → el JS envía el token aquí.
+    Si el token es válido para HOY y el funcionario tiene una reserva
+    confirmada para HOY, se marca como consumida.
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    token_recibido = data.get('token', '').strip()
+ 
+    token_esperado = _generar_token_dia()
+ 
+    if not hmac.compare_digest(token_recibido, token_esperado):
+        return jsonify({'success': False, 'error': 'QR inválido o expirado. Pide al chef que actualice la pantalla.'}), 400
+ 
+    hoy = date.today()
+    user_id = session['user_id']
+ 
+    # Buscar reserva confirmada del funcionario para HOY
+    reserva = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user_id,
+            Reserva.estado == 'confirmada',
+            MenuDia.fecha == hoy
+        )
+        .first()
+    )
+ 
+    if not reserva:
+        return jsonify({'success': False, 'error': 'No tienes una reserva activa para hoy.'}), 404
+ 
+    try:
+        reserva.estado = 'retirada'
+        db.session.commit()
+        return jsonify({'success': True, 'mensaje': '¡Retiro confirmado! Buen provecho 🍽️'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+
 
 if __name__ == '__main__':
     with app.app_context():

@@ -2,169 +2,1003 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KitchenMetrics - Panel Funcionario</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/funcionario.css') }}">
-</head>
-<body class="dashboard-body">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>KitchenMetrics – Panel Funcionario</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ========== RESET & VARIABLES ========== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        :root {
+            --green:      #22c55e;
+            --green-dark: #16a34a;
+            --green-bg:   #f0fdf4;
+            --green-border:#bbf7d0;
+            --amber:      #f59e0b;
+            --red:        #ef4444;
+            --red-dark:   #dc2626;
+            --slate-900:  #0f172a;
+            --slate-700:  #334155;
+            --slate-500:  #64748b;
+            --slate-300:  #cbd5e1;
+            --slate-100:  #f1f5f9;
+            --white:      #ffffff;
+            --header-h:   72px;
+            --radius:     16px;
+            --shadow:     0 4px 24px rgba(0,0,0,.07);
+        }
+
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f8fafc;
+            color: var(--slate-700);
+            padding-top: var(--header-h);
+            min-height: 100vh;
+        }
+
+        /* ========== HEADER ========== */
+        header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--header-h);
+            background: var(--white);
+            border-bottom: 3px solid var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 900;
+            box-shadow: 0 2px 12px rgba(0,0,0,.06);
+        }
+
+        .header-logo { height: 46px; }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-name {
+            font-size: .875rem;
+            font-weight: 600;
+            color: var(--slate-700);
+            background: var(--slate-100);
+            padding: 6px 14px;
+            border-radius: 30px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+
+        .logout-btn {
+            background: var(--red);
+            color: var(--white);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: .8rem;
+            text-decoration: none;
+            letter-spacing: .04em;
+            transition: background .2s;
+            white-space: nowrap;
+        }
+        .logout-btn:hover { background: var(--red-dark); }
+
+        /* ========== MAIN LAYOUT ========== */
+        main {
+            width: 92%;
+            max-width: 900px;
+            margin: 32px auto 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ========== FLASH MESSAGES ========== */
+        .flash {
+            padding: 14px 18px;
+            border-radius: 12px;
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            font-weight: 500;
+            font-size: .9rem;
+        }
+        .flash.danger { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .flash.warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+
+        /* ========== CARDS ========== */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 22px 24px 16px;
+            border-bottom: 1px solid var(--slate-100);
+        }
+
+        .card-header h2 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.15rem;
+            color: var(--slate-900);
+            margin-bottom: 4px;
+        }
+
+        .card-header p {
+            font-size: .875rem;
+            color: var(--slate-500);
+        }
+
+        /* ========== TABLA MENÚ ========== */
+        .menu-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        .menu-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .menu-table th {
+            padding: 10px 20px;
+            text-align: left;
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--slate-500);
+            border-bottom: 1px solid var(--slate-100);
+            white-space: nowrap;
+        }
+
+        .menu-table td {
+            padding: 18px 20px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--slate-100);
+        }
+
+        .menu-table tr:last-child td { border-bottom: none; }
+        .menu-table tr:hover td { background: #fafbfc; }
+
+        .opcion-label {
+            font-family: 'Syne', sans-serif;
+            font-size: .8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--slate-500);
+            margin-bottom: 10px;
+        }
+
+        .plato-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .plato-linea {
+            font-size: .875rem;
+            color: var(--slate-500);
+        }
+        .plato-linea strong { color: var(--slate-700); }
+
+        .plato-fondo {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-left: 4px solid #f97316;
+            padding: 12px 14px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .plato-fondo-nombre {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--slate-900);
+        }
+
+        .plato-fondo-tipo {
+            font-size: .68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #ea580c;
+        }
+
+        .badge-dieta {
+            font-size: .68rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .badge-vegano  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .badge-normal  { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
+
+        /* Columna de acción */
+        .td-accion {
+            width: 180px;
+            text-align: center;
+            border-left: 1px solid var(--slate-100);
+        }
+
+        .btn-reservar {
+            width: 100%;
+            padding: 11px 14px;
+            background: var(--green);
+            color: var(--white);
+            font-weight: 700;
+            font-size: .82rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background .2s, transform .15s;
+            letter-spacing: .02em;
+        }
+        .btn-reservar:hover:not(:disabled) { background: var(--green-dark); transform: translateY(-1px); }
+        .btn-reservar:disabled { background: var(--slate-300); color: var(--slate-500); cursor: not-allowed; }
+        .btn-reservar.agotado { background: #fee2e2; color: var(--red); }
+        .btn-reservar.reservado { background: #e0f2fe; color: #0369a1; }
+
+        /* ========== CARD ASISTENCIA ========== */
+        .card-asistencia {
+            border-left: 5px solid #3b82f6;
+        }
+
+        .card-asistencia-inner {
+            padding: 22px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .asistencia-texto h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.05rem;
+            color: var(--slate-900);
+            margin-bottom: 4px;
+        }
+        .asistencia-texto p { font-size: .85rem; color: var(--slate-500); }
+
+        .badge-faltas {
+            background: var(--slate-100);
+            border-radius: 14px;
+            padding: 14px 28px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            min-width: 200px;
+        }
+        .badge-faltas-label {
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--slate-500);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .badge-faltas-num {
+            font-family: 'Syne', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .badge-faltas-msg { font-size: .82rem; font-weight: 600; margin-top: 6px; }
+        .color-green { color: var(--green-dark); }
+        .color-amber { color: #d97706; }
+        .color-red   { color: var(--red); }
+
+        /* ========== CARD RESERVA ACTIVA ========== */
+        .card-reserva-activa {
+            border-left: 5px solid var(--green);
+            background: var(--green-bg);
+        }
+
+        .reserva-activa-inner {
+            padding: 24px;
+        }
+
+        .reserva-activa-inner h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.15rem;
+            color: #15803d;
+            margin-bottom: 6px;
+        }
+
+        .reserva-activa-inner p {
+            font-size: .9rem;
+            color: #166534;
+            margin-bottom: 18px;
+        }
+
+        .btn-qr {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            max-width: fit-content;
+            background: var(--green-dark);
+            color: var(--white);
+            font-weight: 700;
+            font-size: .95rem;
+            padding: 12px 22px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: background .2s, transform .15s;
+            letter-spacing: .02em;
+        }
+        .btn-qr:hover { background: #15803d; transform: translateY(-2px); }
+        .btn-qr svg { flex-shrink: 0; width: 20px; height: 20px; }
+
+        /* ========== POPUP QR OVERLAY ========== */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.75);
+            z-index: 1100;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            backdrop-filter: blur(4px);
+        }
+        .overlay.active { display: flex; }
+
+        .popup-qr {
+            background: var(--white);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 380px;
+            overflow: hidden;
+            box-shadow: 0 24px 60px rgba(0,0,0,.25);
+            animation: popIn .28s cubic-bezier(.34,1.56,.64,1);
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(.9) translateY(20px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .popup-qr-header {
+            background: var(--slate-900);
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .popup-qr-header h4 {
+            font-family: 'Syne', sans-serif;
+            color: var(--white);
+            font-size: 1rem;
+        }
+        .btn-cerrar-popup {
+            background: rgba(255,255,255,.1);
+            border: none;
+            color: var(--white);
+            font-size: 1.2rem;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .2s;
+        }
+        .btn-cerrar-popup:hover { background: rgba(255,255,255,.2); }
+
+        .popup-qr-body { padding: 20px; }
+
+        /* Área de video / foto congelada */
+        .scanner-area {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #qr-video, #qr-frozen {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #qr-frozen {
+            display: none;
+            z-index: 2;
+        }
+
+        /* Marco de escaneo */
+        .scan-frame {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+        }
+        .scan-frame::before, .scan-frame::after,
+        .scan-frame-inner::before, .scan-frame-inner::after {
+            content: '';
+            position: absolute;
+            width: 36px; height: 36px;
+            border-color: var(--green);
+            border-style: solid;
+        }
+        .scan-frame::before    { top: 16px;  left: 16px;  border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+        .scan-frame::after     { top: 16px;  right: 16px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+        .scan-frame-inner::before { bottom: 16px; left: 16px;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+        .scan-frame-inner::after  { bottom: 16px; right: 16px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+        /* Línea de escaneo */
+        .scan-line {
+            position: absolute;
+            left: 20px; right: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--green), transparent);
+            top: 20px;
+            z-index: 4;
+            animation: scanMove 2s ease-in-out infinite;
+            box-shadow: 0 0 8px var(--green);
+        }
+        @keyframes scanMove {
+            0%   { top: 20px; opacity: 1; }
+            48%  { opacity: 1; }
+            50%  { top: calc(100% - 22px); opacity: 1; }
+            100% { top: 20px; opacity: 1; }
+        }
+
+        /* Estado: congelado */
+        .scan-frozen-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,.45);
+            z-index: 5;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .scan-frozen-overlay.active { display: flex; }
+        .scan-frozen-overlay span {
+            color: var(--white);
+            font-weight: 700;
+            font-size: .9rem;
+            background: rgba(0,0,0,.5);
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        /* Loader spinner */
+        .scan-spinner {
+            width: 36px; height: 36px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-top-color: var(--white);
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .scanner-hint {
+            text-align: center;
+            font-size: .8rem;
+            color: var(--slate-500);
+            margin-top: 10px;
+        }
+
+        canvas#qr-canvas { display: none; }
+
+        /* ========== MODAL RETIRO CONFIRMADO ========== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.65);
+            z-index: 1200;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 40px 32px;
+            width: 100%;
+            max-width: 340px;
+            text-align: center;
+            box-shadow: 0 24px 60px rgba(0,0,0,.25);
+            animation: popIn .3s cubic-bezier(.34,1.56,.64,1);
+        }
+
+        .modal-icon {
+            font-size: 4rem;
+            margin-bottom: 12px;
+            animation: bounceIn .5s .15s both;
+        }
+        @keyframes bounceIn {
+            0%   { transform: scale(0); }
+            70%  { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .modal-box h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.4rem;
+            color: var(--slate-900);
+            margin-bottom: 8px;
+        }
+        .modal-box p { font-size: .9rem; color: var(--slate-500); margin-bottom: 28px; }
+
+        .btn-modal-ok {
+            background: var(--green);
+            color: var(--white);
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 13px 36px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background .2s;
+            width: 100%;
+        }
+        .btn-modal-ok:hover { background: var(--green-dark); }
+
+        /* ========== TABLA VACÍA ========== */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--slate-500);
+            font-size: .95rem;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 640px) {
+            :root { --header-h: 60px; }
+
+            header { padding: 0 14px; }
+            .header-logo { height: 36px; }
+            .user-name { font-size: .78rem; max-width: 120px; padding: 5px 10px; }
+            .logout-btn { padding: 7px 12px; font-size: .72rem; }
+
+            main { width: 96%; margin-top: 20px; gap: 14px; }
+
+            .card-header { padding: 16px 16px 12px; }
+            .card-header h2 { font-size: 1rem; }
+
+            .menu-table th, .menu-table td { padding: 12px 14px; }
+
+            /* En móvil la tabla de menú se apila */
+            .menu-table thead { display: none; }
+            .menu-table tr { display: flex; flex-direction: column; padding: 14px 16px; border-bottom: 1px solid var(--slate-100); }
+            .menu-table tr:last-child { border-bottom: none; }
+            .menu-table td { padding: 0; border: none; }
+            .menu-table td + td { margin-top: 12px; }
+            .td-accion { width: 100%; text-align: left; border-left: none; }
+
+            .card-asistencia-inner { padding: 18px 16px; }
+            .badge-faltas { min-width: 0; width: 100%; }
+
+            .reserva-activa-inner { padding: 18px 16px; }
+            .btn-qr { width: auto; justify-content: center; }
+
+            .popup-qr { max-width: 100%; border-radius: 16px; }
+        }
+
+        @media (min-width: 641px) and (max-width: 900px) {
+            .td-accion { width: 150px; }
+            .btn-reservar { font-size: .78rem; padding: 10px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== HEADER ===== -->
     <header>
-        <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo" class="header-logo">
+        <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="KitchenMetrics" class="header-logo">
         <div class="user-info">
             <span class="user-name">👤 {{ nombre }}</span>
-            <a href="/logout" class="logout-btn">CERRAR SESIÓN</a>
+            <a href="/logout" class="logout-btn">Salir</a>
         </div>
     </header>
 
-    <main class="container">
+    <!-- ===== MAIN ===== -->
+    <main>
+
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert" style="padding:15px; margin-bottom:20px; border-radius:10px; background:#d4edda; color:#155724; border:1px solid">
-                {{ message }}
-              </div>
+              <div class="flash {{ category }}">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <div class="card">
-            <h2>🍴 Reserva de Almuerzo Anticipada</h2>
-            <p class="text-muted">Selecciona **una** de las opciones disponibles para el servicio de mañana.</p>
+        <!-- ===== CARD: RESERVA ACTIVA PARA HOY ===== -->
+        {% if reserva_activa %}
+<div class="card card-reserva-activa">
+    <div class="reserva-activa-inner">
+        <h3>✅ Tienes una reserva para hoy</h3>
+        <p>Dirígete al casino y escanea el código QR del panel de cocina para confirmar tu retiro.</p>
 
-            <div class="table-responsive">
-                <table>
+        {# Detalle del menú reservado #}
+        <div style="background:#fff; border:1px solid var(--green-border); border-radius:12px; padding:14px 16px; margin:14px 0;">
+            <div style="font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--green-dark); margin-bottom:10px;">
+                🗓 Tu menú reservado — {{ reserva_activa.jornada.menu_dia.fecha.strftime('%d/%m/%Y') }}
+            </div>
+            {% for det in reserva_activa.jornada.menu_dia.detalles | sort(attribute='orden') %}
+                {% if det.orden == 1 %}
+                <div style="font-size:.85rem; color:var(--slate-500); margin-bottom:4px;">
+                    🥗 Entrada: <strong style="color:var(--slate-700);">{{ det.plato.nombre }}</strong>
+                </div>
+                {% elif det.orden in [2,3,4] and (reserva_activa.id_plato_fondo is none or det.id_plato == reserva_activa.id_plato_fondo) %}
+                <div style="background:var(--slate-100); border-left:4px solid #f97316; border-radius:8px; padding:10px 12px; margin:6px 0;">
+                    <div style="font-size:.68rem; font-weight:700; text-transform:uppercase; color:#ea580c;">Plato de Fondo</div>
+                    <div style="font-weight:700; color:var(--slate-900);">🍲 {{ det.plato.nombre }}</div>
+                </div>
+                {% elif det.orden == 5 %}
+                <div style="font-size:.85rem; color:var(--slate-500); margin-top:4px;">
+                    🍰 Postre: <strong style="color:var(--slate-700);">{{ det.plato.nombre }}</strong>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <button class="btn-qr" onclick="abrirScanner()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <path d="M14 14h.01M18 14h3M14 18v3M18 18h3v3"/>
+            </svg>
+            Escanear QR de Retiro
+        </button>
+    </div>
+</div>
+{% endif %}
+
+        <!-- ===== CARD: MENÚ DE MAÑANA ===== -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🍴 Reserva de Almuerzo para Mañana</h2>
+                <p>Selecciona una de las opciones disponibles para el servicio de mañana.</p>
+            </div>
+            <div class="menu-table-wrapper">
+                <table class="menu-table">
                     <thead>
                         <tr>
                             <th>Detalle del Menú</th>
-                            <th class="text-center">Acción</th>
+                            <th style="text-align:center;">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
-    {% if jornadas %}
-        {% for jornada in jornadas %}
-            {% if jornada.menu_dia and jornada.menu_dia.detalles %}
-                {# Buscamos todos los platos de fondo (orden 2, 3 y 4) #}
-                {% for d in jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
-                <tr>
-                    <td style="padding: 20px;">
-                        <div style="margin-bottom: 12px;">
-                            <strong style="color: #2c3e50; font-size: 1.1rem; text-transform: uppercase;">
-                                🍱 Opción {{ loop.index }}
-                            </strong>
-                        </div>
-                        
-                        <div class="detalle-menu-container" style="display: grid; gap: 8px; margin-left: 10px;">
-                            {# 1. ENTRADA (La misma para todas las opciones) #}
-                            {% for e in jornada.menu_dia.detalles if e.orden == 1 %}
-                                <div style="color: #666; font-size: 0.9rem;">
-                                    <span>🥗 ENTRADA:</span> <strong>{{ e.plato.nombre }}</strong>
-                                </div>
-                            {% endfor %}
-                            
-                            {# 2. PLATO DE FONDO ESPECÍFICO DE ESTA FILA #}
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 5px solid #e67e22; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; border-left: 5px solid #e67e22;">
-                                <div>
-                                    <small style="color: #e67e22; font-weight: bold; display: block; text-transform: uppercase; font-size: 0.7rem;">Plato de Fondo</small>
-                                    <span style="font-size: 1.15rem; font-weight: bold; color: #2c3e50;">🍲 {{ d.plato.nombre }}</span>
-                                </div>
-                                
-                                {% if 'vegano' in d.plato.nombre.lower() or 'vegetariana' in d.plato.nombre.lower() or d.id_plato in [7, 9] %}
-                                    <span style="padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #d4edda; color: #155724; border: 1px solid #c3e6cb;">VEGANO</span>
-                                {% else %}
-                                    <span style="padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #e8f4fd; color: #2980b9; border: 1px solid #d1e9f7;">NORMAL</span>
-                                {% endif %}
-                            </div>
-                            
-                            {# 3. POSTRE (El mismo para todas las opciones) #}
-                            {% for p in jornada.menu_dia.detalles if p.orden == 5 %}
-                                <div style="color: #666; font-size: 0.9rem;">
-                                    <span>🍰 POSTRE:</span> <strong>{{ p.plato.nombre }}</strong>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </td>
+                    {% if jornadas %}
+                        {% for jornada in jornadas %}
+                            {% if jornada.menu_dia and jornada.menu_dia.detalles %}
+                                {% for d in jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
+                                <tr>
+                                    <td>
+                                        <div class="opcion-label">🍱 Opción {{ loop.index }}</div>
+                                        <div class="plato-row">
+                                            {% for e in jornada.menu_dia.detalles if e.orden == 1 %}
+                                            <div class="plato-linea">🥗 Entrada: <strong>{{ e.plato.nombre }}</strong></div>
+                                            {% endfor %}
 
-                    <td class="text-center" style="vertical-align: middle; width: 220px; border-left: 1px solid #eee;">
-                        {# Creamos un botón de reserva independiente para este plato #}
-                        <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
-                            {# Pasamos el ID del plato para que el sistema sepa cuál eligió #}
-                            <input type="hidden" name="id_plato_seleccionado" value="{{ d.id_plato }}">
-                            
-                            <button type="submit" class="btn-action" 
-                                {% if reserva_activa or jornada.raciones_disponibles == 0 %}
-                                    disabled style="opacity:0.6; cursor:not-allowed; background: #bdc3c7; border:none; color: white;"
-                                {% endif %}
-                                style="width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer;">
-                                {% if reserva_activa %} 
-                                    ✅ Reservado 
-                                {% elif jornada.raciones_disponibles == 0 %} 
-                                    🚫 Agotado 
-                                {% else %} 
-                                    RESERVAR {{ d.plato.nombre|upper }}
-                                {% endif %}
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
-    {% else %}
-        <tr><td colspan="2" style="text-align:center; padding: 50px; color: #95a5a6;">No hay menús programados.</td></tr>
-    {% endif %}
-</tbody>
+                                            <div class="plato-fondo">
+                                                <div>
+                                                    <div class="plato-fondo-tipo">Plato de Fondo</div>
+                                                    <div class="plato-fondo-nombre">🍲 {{ d.plato.nombre }}</div>
+                                                </div>
+                                                {% if 'vegano' in d.plato.nombre.lower() or 'vegetariana' in d.plato.nombre.lower() or d.id_plato in [7, 9] %}
+                                                    <span class="badge-dieta badge-vegano">VEGANO</span>
+                                                {% else %}
+                                                    <span class="badge-dieta badge-normal">NORMAL</span>
+                                                {% endif %}
+                                            </div>
+
+                                            {% for p in jornada.menu_dia.detalles if p.orden == 5 %}
+                                            <div class="plato-linea">🍰 Postre: <strong>{{ p.plato.nombre }}</strong></div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+
+                                    <td class="td-accion">
+                                        <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
+                                            <input type="hidden" name="id_plato_seleccionado" value="{{ d.id_plato }}">
+                                            <button type="submit" class="btn-reservar
+                                                {% if reserva_manana %}reservado
+                                                {% elif jornada.raciones_disponibles == 0 %}agotado{% endif %}"
+                                                {% if reserva_manana or jornada.raciones_disponibles == 0 %}disabled{% endif %}>
+                                                {% if reserva_manana %}
+                                                    ✅ Reservado
+                                                {% elif jornada.raciones_disponibles == 0 %}
+                                                    🚫 Agotado
+                                                {% else %}
+                                                    Reservar esta opción
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="2" class="empty-state">No hay menús programados para mañana.</td></tr>
+                    {% endif %}
+                    </tbody>
                 </table>
             </div>
         </div>
 
+        <!-- ===== CARD: ASISTENCIA ===== -->
         <div class="card card-asistencia">
-            <div class="asistencia-info">
-                <h3>Mi Estado de Asistencia</h3>
-                <p>Tu compromiso con el servicio de alimentación.</p>
-            </div>
-            
-            <div class="badge-contenedor">
-                <span class="badge-label">Faltas Acumuladas</span>
-                <span class="badge-numero" style="color: {% if faltas == 0 %}#27ae60{% elif faltas < 3 %}#f39c12{% else %}#e74c3c{% endif %};">
-                    {{ faltas }}
-                </span>
-                <div class="badge-mensaje">
-                    {% if faltas == 0 %}
-                        <p style="color: #27ae60;">🌟 ¡Excelente compromiso!</p>
-                    {% elif faltas < 3 %}
-                        <p style="color: #f39c12;">👍 Vas bien. Recuerda avisar.</p>
-                    {% else %}
-                        <p style="color: #e74c3c;">🚨 ¡Cuidado! Revisa tus faltas.</p>
-                    {% endif %}
+            <div class="card-asistencia-inner">
+                <div class="asistencia-texto">
+                    <h3>Mi Estado de Asistencia</h3>
+                    <p>Tu compromiso con el servicio de alimentación.</p>
+                </div>
+                <div class="badge-faltas">
+                    <span class="badge-faltas-label">Faltas Acumuladas</span>
+                    <div class="badge-faltas-num
+                        {% if faltas == 0 %}color-green
+                        {% elif faltas < 3 %}color-amber
+                        {% else %}color-red{% endif %}">{{ faltas }}</div>
+                    <div class="badge-faltas-msg
+                        {% if faltas == 0 %}color-green
+                        {% elif faltas < 3 %}color-amber
+                        {% else %}color-red{% endif %}">
+                        {% if faltas == 0 %}🌟 ¡Excelente compromiso!
+                        {% elif faltas < 3 %}👍 Vas bien. Recuerda avisar.
+                        {% else %}🚨 ¡Cuidado! Revisa tus faltas.{% endif %}
+                    </div>
                 </div>
             </div>
         </div>
 
-        {% if reserva_activa %}
-        <div class="card card-exito">
-            <div class="exito-contenido">
-                <h3>✅ Tienes una reserva activa</h3>
-                <p>Preséntate en el casino para retirar tu menú reservado.</p>
-                <form id="form-retirar" action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST" onsubmit="return solicitarPasswordRetiro()">
-                    <button type="submit" class="btn-retirado">
-                        MARCAR COMO RETIRADO
-                    </button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
     </main>
 
+    <!-- ========================================
+         POPUP ESCÁNER QR
+    ========================================= -->
+    <div class="overlay" id="overlay-scanner">
+        <div class="popup-qr">
+            <div class="popup-qr-header">
+                <h4>📷 Escanear QR de Retiro</h4>
+                <button class="btn-cerrar-popup" onclick="cerrarScanner()" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="popup-qr-body">
+                <div class="scanner-area">
+                    <!-- Video en vivo -->
+                    <video id="qr-video" autoplay playsinline muted></video>
+                    <!-- Imagen congelada al leer el QR -->
+                    <img id="qr-frozen" alt="Captura QR" />
+                    <!-- Marco decorativo -->
+                    <div class="scan-frame"><div class="scan-frame-inner"></div></div>
+                    <!-- Línea animada (se oculta al congelar) -->
+                    <div class="scan-line" id="scan-line"></div>
+                    <!-- Overlay "validando" encima de la foto congelada -->
+                    <div class="scan-frozen-overlay" id="frozen-overlay">
+                        <div class="scan-spinner"></div>
+                        <span>Validando retiro…</span>
+                    </div>
+                </div>
+                <canvas id="qr-canvas"></canvas>
+                <p class="scanner-hint">Apunta la cámara al código QR del panel de cocina</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         MODAL RETIRO CONFIRMADO
+    ========================================= -->
+    <div class="modal-overlay" id="modal-retiro">
+        <div class="modal-box">
+            <div class="modal-icon">✅</div>
+            <h3>¡Retiro confirmado!</h3>
+            <p>Tu menú fue retirado exitosamente.<br>¡Buen provecho! 🍽️</p>
+            <button class="btn-modal-ok" onclick="cerrarModalRetiro()">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- jsQR (MIT, sin API key) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
     <script>
-        function solicitarPasswordRetiro() {
-            const password = prompt("Confirmación del Chef: Ingresa la contraseña de retiro:");
-            if (!password) return false;
-            const form = document.getElementById("form-retirar");
-            const input = document.createElement("input");
-            input.type = "hidden"; input.name = "password_confirmacion"; input.value = password;
-            form.appendChild(input);
-            return true;
+    (function () {
+
+        /* ── Referencias DOM ── */
+        const overlay      = document.getElementById('overlay-scanner');
+        const video        = document.getElementById('qr-video');
+        const frozen       = document.getElementById('qr-frozen');
+        const canvas       = document.getElementById('qr-canvas');
+        const ctx          = canvas.getContext('2d');
+        const scanLine     = document.getElementById('scan-line');
+        const frozenOverlay= document.getElementById('frozen-overlay');
+        const modalRetiro  = document.getElementById('modal-retiro');
+
+        let stream        = null;
+        let animId        = null;
+        let escaneando    = false;
+        let yaEnviando    = false;   // ← evita doble fetch si tick se dispara 2 veces
+
+        /* ── Abrir escáner ── */
+        window.abrirScanner = async function () {
+            // Reset visual
+            frozen.style.display = 'none';
+            video.style.display  = 'block';
+            scanLine.style.display = 'block';
+            frozenOverlay.classList.remove('active');
+
+            overlay.classList.add('active');
+            escaneando = true;
+            yaEnviando = false;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } }
+                });
+                video.srcObject = stream;
+                video.play();
+                video.addEventListener('loadedmetadata', tick, { once: true });
+            } catch (e) {
+                cerrarScanner();
+                alert('No se pudo acceder a la cámara. Verifica los permisos.');
+            }
+        };
+
+        /* ── Cerrar escáner sin resultado ── */
+        window.cerrarScanner = function () {
+            escaneando = false;
+            if (animId) cancelAnimationFrame(animId);
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            overlay.classList.remove('active');
+        };
+
+        /* ── Loop de lectura ── */
+        function tick () {
+            if (!escaneando) return;
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+                animId = requestAnimationFrame(tick);
+                return;
+            }
+
+            canvas.width  = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert'
+            });
+
+            if (code) {
+                congelarYValidar(code.data);
+                return;   // no más frames
+            }
+
+            animId = requestAnimationFrame(tick);
         }
+
+        /* ── Congelar imagen y mostrar spinner ── */
+        function congelarYValidar (token) {
+            if (yaEnviando) return;   // ← bloquea doble disparo
+            yaEnviando = true;
+            escaneando = false;
+            if (animId) cancelAnimationFrame(animId);
+
+            // Capturar frame actual como imagen
+            const dataUrl = canvas.toDataURL('image/jpeg', .85);
+            frozen.src = dataUrl;
+            frozen.style.display = 'block';
+            video.style.display  = 'none';
+
+            // Ocultar línea animada, mostrar spinner
+            scanLine.style.display = 'none';
+            frozenOverlay.classList.add('active');
+
+            // Detener cámara (ya no se necesita)
+            if (stream) stream.getTracks().forEach(t => t.stop());
+
+            enviarToken(token);
+        }
+
+        /* ── Enviar token al servidor ── */
+        async function enviarToken (token) {
+            try {
+                const res  = await fetch('/retirar_qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Cerrar popup
+                    overlay.classList.remove('active');
+                    frozenOverlay.classList.remove('active');
+                    // Ocultar la card de reserva para que no quede visible "No tienes reserva"
+                    const cardReserva = document.querySelector('.card-reserva-activa');
+                    if (cardReserva) cardReserva.style.display = 'none';
+                    // Mostrar modal de confirmación
+                    modalRetiro.classList.add('active');
+                } else {
+                    frozenOverlay.classList.remove('active');
+                    // Mostrar error en el popup y permitir volver a intentar
+                    mostrarErrorEnPopup(data.error || 'QR inválido. Intenta de nuevo.');
+                }
+            } catch {
+                frozenOverlay.classList.remove('active');
+                mostrarErrorEnPopup('Error de conexión. Intenta de nuevo.');
+            }
+        }
+
+        /* ── Error en el popup (sin cerrarlo) ── */
+        function mostrarErrorEnPopup (msg) {
+            // Reemplazar el hint por el mensaje de error
+            const hint = document.querySelector('.scanner-hint');
+            hint.style.color = '#ef4444';
+            hint.style.fontWeight = '600';
+            hint.textContent = '⚠️ ' + msg;
+
+            // Botón para reintentar
+            const yaHayBtn = document.getElementById('btn-retry');
+            if (!yaHayBtn) {
+                const btn = document.createElement('button');
+                btn.id = 'btn-retry';
+                btn.textContent = 'Volver a escanear';
+                btn.style.cssText = `
+                    display:block; width:100%; margin-top:12px;
+                    padding:11px; background:#0f172a; color:#fff;
+                    font-weight:700; border:none; border-radius:10px; cursor:pointer;
+                `;
+                btn.onclick = () => {
+                    hint.style.color = '';
+                    hint.style.fontWeight = '';
+                    hint.textContent = 'Apunta la cámara al código QR del panel de cocina';
+                    btn.remove();
+                    abrirScanner();
+                };
+                hint.after(btn);
+            }
+        }
+
+        /* ── Cerrar modal de retiro confirmado ── */
+        window.cerrarModalRetiro = function () {
+            modalRetiro.classList.remove('active');
+            // Ocultar la card de reserva para que no aparezca el botón de escanear
+            const cardReserva = document.querySelector('.card-reserva-activa');
+            if (cardReserva) cardReserva.remove();
+        };
+
+        /* ── Mostrar modal si viene ?retirado=1 (retiro por form clásico) ── */
+        if (new URLSearchParams(location.search).get('retirado') === '1') {
+            modalRetiro.classList.add('active');
+            history.replaceState({}, '', location.pathname);
+        }
+
+        /* ── Cerrar overlay al hacer clic fuera del popup ── */
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) cerrarScanner();
+        });
+
+    })();
     </script>
+
 </body>
 </html>

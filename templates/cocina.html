@@ -44,6 +44,64 @@
           {% endif %}
         {% endwith %}
         
+<section class="card" id="qr-card" style="
+    max-width: 340px;
+    margin: 0 auto 28px auto;
+    text-align: center;
+    border: 2px solid #27ae60;
+    border-radius: 16px;
+    padding: 24px 20px;
+    background: #fff;
+    box-shadow: 0 4px 18px rgba(39,174,96,0.13);
+">
+    <h3 style="margin: 0 0 4px 0; color: #2c3e50; font-size: 1.1rem;">
+        📲 QR de Retiro — Hoy
+    </h3>
+    <img
+        id="qr-imagen"
+        src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ qr_token_dia }}&ecc=M&bgcolor=ffffff&color=2c3e50"
+        alt="QR del día"
+        style="width: 220px; height: 220px; border-radius: 10px; border: 1px solid #eee;"
+        onerror="this.style.display='none'; document.getElementById('qr-error').style.display='block';"
+    >
+    <div id="qr-error" style="display:none; color:#e74c3c; font-size:0.85rem; margin-top:8px;">
+        ⚠️ Sin conexión para generar QR
+    </div>
+
+    <p style="font-size: 0.72rem; color: #aaa; margin: 14px 0 0 0;">
+        Código válido solo por hoy · Se renueva a medianoche
+    </p>
+
+    {# Botón para que el chef refresque el QR manualmente si lo necesita #}
+    <button
+        onclick="refrescarQR()"
+        style="
+            margin-top: 12px;
+            background: #f4f7f6;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: #555;
+            transition: 0.2s;
+        "
+        onmouseover="this.style.background='#e8f5e9'"
+        onmouseout="this.style.background='#f4f7f6'"
+    >
+        🔄 Actualizar QR
+    </button>
+</section>
+
+<script>
+function refrescarQR() {
+    const img = document.getElementById('qr-imagen');
+    if (!img) return;
+    // Añade timestamp para evitar caché del navegador
+    const base = img.src.split('&_t=')[0];
+    img.src = base + '&_t=' + Date.now();
+}
+</script>
         <h3 class="section-title">📊 Planificación de Producción</h3>
         <div class="production-grid">
             {% set entradas = [] %}

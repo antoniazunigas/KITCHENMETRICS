@@ -236,6 +236,7 @@ DECLARE
     v_estado TEXT;
     v_fecha_reserva TIMESTAMP;
     v_fecha_consumo TIMESTAMP;
+    v_id_plato_fondo INT;
 
     v_total_usuarios INT := 50;
     v_faltas_objetivo INT;
@@ -289,10 +290,16 @@ BEGIN
                 v_fecha_consumo := NULL;
             END IF;
 
+            -- Asignar un fondo aleatorio de los disponibles para este menú
+            SELECT md.id_plato INTO v_id_plato_fondo
+            FROM menu_detalle md
+            WHERE md.id_menu = j AND md.orden IN (2, 3, 4)
+            ORDER BY random() LIMIT 1;
+
             INSERT INTO reserva
-            (id_reserva, id_usuario, id_jornada, fecha_reserva, estado)
+            (id_reserva, id_usuario, id_jornada, fecha_reserva, estado, id_plato_fondo)
             VALUES
-            (v_reserva, u, j, v_fecha_reserva, v_estado);
+            (v_reserva, u, j, v_fecha_reserva, v_estado, v_id_plato_fondo);
 
             IF v_estado = 'consumida' THEN
                 INSERT INTO consumo
@@ -684,7 +691,7 @@ CALL sp_generar_reporte_mermas_vs_consumo_ultimo_mes();
 -- =========================================================
 BEGIN;
 
--- Restaurar cupos antes de borrar reservas futuras
+-- Restaurar cupos antes de borrar reservas futuras (incluye mañana)
 UPDATE jornada_cocina j
 SET raciones_disponibles = j.raciones_disponibles + sub.total_reservas
 FROM (
@@ -692,7 +699,7 @@ FROM (
     FROM reserva r
     JOIN jornada_cocina j2 ON j2.id_jornada = r.id_jornada
     JOIN menu_dia m ON m.id_menu = j2.id_menu
-    WHERE m.fecha > CURRENT_DATE + INTERVAL '1 day'
+    WHERE m.fecha >= CURRENT_DATE + INTERVAL '1 day'
     GROUP BY r.id_jornada
 ) sub
 WHERE j.id_jornada = sub.id_jornada;
@@ -704,17 +711,95 @@ WHERE id_reserva IN (
     FROM reserva r
     JOIN jornada_cocina j ON j.id_jornada = r.id_jornada
     JOIN menu_dia m ON m.id_menu = j.id_menu
-    WHERE m.fecha > CURRENT_DATE + INTERVAL '1 day'
+    WHERE m.fecha >= CURRENT_DATE + INTERVAL '1 day'
 );
 
--- Borrar reservas futuras
+-- Borrar reservas futuras (mañana y siguientes)
 DELETE FROM reserva
 WHERE id_reserva IN (
     SELECT r.id_reserva
     FROM reserva r
     JOIN jornada_cocina j ON j.id_jornada = r.id_jornada
     JOIN menu_dia m ON m.id_menu = j.id_menu
-    WHERE m.fecha > CURRENT_DATE + INTERVAL '1 day'
+    WHERE m.fecha >= CURRENT_DATE + INTERVAL '1 day'
+);
+
+COMMIT;
+-- =========================================================
+-- 23. RESERVAS "CONFIRMADA" PARA HOY
+--     Usuarios manuales (3,7,8,9,10) + 50% dummies impares
+-- =========================================================
+BEGIN;
+
+-- Dummies impares u <= 40 ya tienen reserva 'consumida' hoy → 'confirmada'
+-- Borrar consumo asociado primero para evitar inconsistencias
+DELETE FROM consumo
+WHERE id_reserva IN (
+    SELECT r.id_reserva
+    FROM reserva r
+    JOIN jornada_cocina jc ON jc.id_jornada = r.id_jornada
+    JOIN menu_dia m ON m.id_menu = jc.id_menu
+    WHERE m.fecha = CURRENT_DATE
+      AND r.id_usuario % 2 = 1
+      AND r.id_usuario BETWEEN 11 AND 40
+      AND r.estado = 'consumida'
+);
+
+UPDATE reserva
+SET estado = 'confirmada'
+WHERE id_jornada = (
+        SELECT jc.id_jornada FROM jornada_cocina jc
+        JOIN menu_dia m ON m.id_menu = jc.id_menu
+        WHERE m.fecha = CURRENT_DATE LIMIT 1
+    )
+  AND estado = 'consumida'
+  AND id_usuario % 2 = 1
+  AND id_usuario BETWEEN 11 AND 40;
+
+-- Usuarios manuales funcionarios (IDs 3,7,8,9,10)
+-- no entran en el loop del seed (que empieza en 11) → insertar ahora
+INSERT INTO reserva (id_usuario, id_jornada, fecha_reserva, estado, id_plato_fondo)
+SELECT
+    u.id_usuario,
+    jc.id_jornada,
+    CURRENT_DATE + TIME '08:00:00',
+    'confirmada',
+    (SELECT md.id_plato FROM menu_detalle md
+     WHERE md.id_menu = jc.id_menu AND md.orden IN (2, 3, 4)
+     ORDER BY random() LIMIT 1)
+FROM usuario u
+CROSS JOIN (
+    SELECT jc.id_jornada, jc.id_menu FROM jornada_cocina jc
+    JOIN menu_dia m ON m.id_menu = jc.id_menu
+    WHERE m.fecha = CURRENT_DATE LIMIT 1
+) jc
+WHERE u.id_usuario IN (3, 7, 8, 9, 10)
+  AND NOT EXISTS (
+      SELECT 1 FROM reserva r2
+      JOIN jornada_cocina jc2 ON jc2.id_jornada = r2.id_jornada
+      JOIN menu_dia m2 ON m2.id_menu = jc2.id_menu
+      WHERE m2.fecha = CURRENT_DATE
+        AND r2.id_usuario = u.id_usuario
+  );
+
+-- Recalcular raciones_disponibles de la jornada de hoy
+UPDATE jornada_cocina
+SET raciones_disponibles = raciones_planificadas - (
+    SELECT COUNT(*) FROM reserva r
+    WHERE r.id_jornada = jornada_cocina.id_jornada
+      AND r.estado IN ('confirmada', 'consumida', 'retirada')
+)
+WHERE id_jornada = (
+    SELECT jc.id_jornada FROM jornada_cocina jc
+    JOIN menu_dia m ON m.id_menu = jc.id_menu
+    WHERE m.fecha = CURRENT_DATE LIMIT 1
+);
+
+-- Ajustar secuencia de IDs
+SELECT setval(
+    pg_get_serial_sequence('reserva','id_reserva'),
+    COALESCE((SELECT MAX(id_reserva) FROM reserva), 1),
+    true
 );
 
 COMMIT;
