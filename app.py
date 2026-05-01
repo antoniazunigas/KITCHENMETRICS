@@ -706,46 +706,60 @@ def registrar_merma():
 @app.route('/cocina')
 @login_required(role='cocina')
 def panel_cocina():
-    modo = request.args.get('modo', 'hoy')
+    modo          = request.args.get('modo', 'hoy')
     fecha_consulta = date.today() + timedelta(days=1) if modo == 'manana' else date.today()
-    titulo_panel = "Planificación de Producción - MAÑANA" if modo == 'manana' else "Panel de Control de Entregas - HOY"
-
-    reservas_lista = Reserva.query.join(JornadaCocina).join(MenuDia).filter(MenuDia.fecha == fecha_consulta).all()
-
-    resumen_platos = {}
+    titulo_panel  = "Planificación de Producción - MAÑANA" if modo == 'manana' else "Panel de Control de Entregas - HOY"
+ 
+    reservas_lista = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(MenuDia.fecha == fecha_consulta)
+        .all()
+    )
+ 
+    resumen_platos       = {}
     calculo_ingredientes = {}
-
+ 
     for r in reservas_lista:
-        if r.estado != 'no_retirada':
-            # 1. Identificar la opción de fondo (1, 2 o 3)
-            n_opcion = (r.id_jornada % 3)
-            orden_fondo = 2 if n_opcion == 1 else (3 if n_opcion == 2 else 4)
-
-            # 2. Recorrer platos del menú de ese día
-            for detalle in r.jornada.menu_dia.detalles:
-                nom = detalle.plato.nombre
-                
-                # Sumamos el fondo elegido, la entrada (orden 1) y el postre (orden 5)
-                if detalle.orden == orden_fondo or detalle.orden == 1 or detalle.orden == 5:
-                    resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
-
-                # 3. CÁLCULO DE INSUMOS
-                if detalle.plato.recetas:
-                    for item in detalle.plato.recetas:
-                        ing_nombre = str(item.ingrediente.nombre)
-                        if ing_nombre not in calculo_ingredientes:
-                            calculo_ingredientes[ing_nombre] = {
-                                'cantidad': 0.0, 
-                                'unidad': str(item.ingrediente.unidad_medida)
-                            }
-                        
-                        try:
-                            valor_nuevo = float(item.cantidad_por_porcion)
-                            valor_actual = float(calculo_ingredientes[ing_nombre]['cantidad'])
-                            calculo_ingredientes[ing_nombre]['cantidad'] = valor_actual + valor_nuevo
-                        except (ValueError, TypeError):
-                            continue
-
+        # Excluir reservas no retiradas del resumen de producción
+        if r.estado == 'no_retirada':
+            continue
+ 
+        if not (r.jornada and r.jornada.menu_dia and r.jornada.menu_dia.detalles):
+            continue
+ 
+        for detalle in r.jornada.menu_dia.detalles:
+            nom = detalle.plato.nombre
+ 
+            # ── Entrada (orden 1) y Postre (orden 5): siempre se cuentan ──────
+            if detalle.orden in (1, 5):
+                resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
+ 
+            # ── Fondo: SOLO el que el usuario eligió realmente ──────────────
+            # Se compara con r.id_plato_fondo, que es el campo guardado al reservar
+            elif detalle.orden in (2, 3, 4) and detalle.id_plato == r.id_plato_fondo:
+                resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
+ 
+            # ── Cálculo de insumos: misma lógica de qué platos se sirven ──────
+            sirve = (
+                detalle.orden in (1, 5) or
+                (detalle.orden in (2, 3, 4) and detalle.id_plato == r.id_plato_fondo)
+            )
+ 
+            if sirve and detalle.plato.recetas:
+                for item in detalle.plato.recetas:
+                    ing_nombre = str(item.ingrediente.nombre)
+                    if ing_nombre not in calculo_ingredientes:
+                        calculo_ingredientes[ing_nombre] = {
+                            'cantidad': 0.0,
+                            'unidad':   str(item.ingrediente.unidad_medida)
+                        }
+                    try:
+                        calculo_ingredientes[ing_nombre]['cantidad'] += float(item.cantidad_por_porcion)
+                    except (ValueError, TypeError):
+                        continue
+ 
     return render_template(
         'cocina.html',
         nombre=session['user_nombre'],

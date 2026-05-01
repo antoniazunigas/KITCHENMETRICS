@@ -8,7 +8,6 @@
 
     <!-- ── Estilos del filtro Lista de Entrega (sin tocar cocina.css) ── -->
     <style>
-        /* Barra de filtros */
         .entrega-filtros {
             display: flex;
             align-items: center;
@@ -40,11 +39,7 @@
             box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
         }
 
-        /* Pills de estado */
-        .entrega-pills {
-            display: flex;
-            gap: 6px;
-        }
+        .entrega-pills { display: flex; gap: 6px; }
 
         .pill-estado {
             padding: 6px 14px;
@@ -81,7 +76,6 @@
             border-color: #166534;
         }
 
-        /* Contador */
         .entrega-contador {
             margin-left: auto;
             font-size: .78rem;
@@ -89,11 +83,8 @@
             white-space: nowrap;
         }
 
-        .entrega-contador strong {
-            color: var(--ck-primary-solid, #16a34a);
-        }
+        .entrega-contador strong { color: var(--ck-primary-solid, #16a34a); }
 
-        /* Fila vacía cuando no hay resultados */
         .fila-sin-resultados td {
             text-align: center;
             color: var(--km-muted);
@@ -165,11 +156,18 @@
             {% for r in reservas %}
                 {% if r.jornada.menu_dia and r.jornada.menu_dia.detalles %}
                     {% for d in r.jornada.menu_dia.detalles %}
-                        {% if d.orden == 1 %}{% set _ = entradas.append(d.plato.nombre) %}{% endif %}
-                        {% if d.orden in [2, 3, 4] and d.id_menu == r.jornada.id_menu %}
+                        {# Entrada (orden 1): siempre se suma #}
+                        {% if d.orden == 1 %}
+                            {% set _ = entradas.append(d.plato.nombre) %}
+                        {% endif %}
+                        {# Fondo: solo el que el usuario realmente seleccionó (id_plato_fondo) #}
+                        {% if d.orden in [2, 3, 4] and d.id_plato == r.id_plato_fondo %}
                             {% set _ = fondos.append(d.plato.nombre) %}
                         {% endif %}
-                        {% if d.orden == 5 %}{% set _ = postres.append(d.plato.nombre) %}{% endif %}
+                        {# Postre (orden 5): siempre se suma #}
+                        {% if d.orden == 5 %}
+                            {% set _ = postres.append(d.plato.nombre) %}
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
             {% endfor %}
@@ -264,29 +262,50 @@
                             <strong>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</strong>
                             <small>{{ r.usuario.rut }}</small>
                         </td>
+
                         <td>
                             <div class="ticket-bandeja">
                                 {% if r.jornada.menu_dia and r.jornada.menu_dia.detalles %}
+
+                                    {# ── Entrada (orden 1) ── #}
                                     {% for d in r.jornada.menu_dia.detalles if d.orden == 1 %}
-                                        {% if loop.first %}<div class="t-item-top">🥗 {{ d.plato.nombre }}</div>{% endif %}
+                                        {% if loop.first %}
+                                            <div class="t-item-top">🥗 {{ d.plato.nombre }}</div>
+                                        {% endif %}
                                     {% endfor %}
 
-                                    {% set lista_fondos = [] %}
-                                    {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
-                                        {% set _ = lista_fondos.append(d.plato.nombre) %}
+                                    {# ── Fondo: usa id_plato_fondo para mostrar la selección REAL del usuario ── #}
+                                    {% set fondo_encontrado = namespace(nombre=none) %}
+                                    {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] and d.id_plato == r.id_plato_fondo %}
+                                        {% if loop.first %}
+                                            {% set fondo_encontrado.nombre = d.plato.nombre %}
+                                        {% endif %}
                                     {% endfor %}
-                                    {% if lista_fondos|length > 0 %}
-                                        <div class="t-fondo"><strong>🍲 FONDO: {{ lista_fondos[0] }}</strong></div>
+
+                                    {% if fondo_encontrado.nombre %}
+                                        <div class="t-fondo"><strong>🍲 FONDO: {{ fondo_encontrado.nombre }}</strong></div>
+                                    {% else %}
+                                        {# Fallback: si id_plato_fondo no coincide (reservas antiguas sin dato), mostrar el primero disponible #}
+                                        {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
+                                            {% if loop.first %}
+                                                <div class="t-fondo" style="opacity:.6;"><strong>🍲 FONDO: {{ d.plato.nombre }}</strong> <small>(sin selección)</small></div>
+                                            {% endif %}
+                                        {% endfor %}
                                     {% endif %}
 
+                                    {# ── Postre (orden 5) ── #}
                                     {% for d in r.jornada.menu_dia.detalles if d.orden == 5 %}
-                                        {% if loop.first %}<div class="t-item-bottom">🍰 {{ d.plato.nombre }}</div>{% endif %}
+                                        {% if loop.first %}
+                                            <div class="t-item-bottom">🍰 {{ d.plato.nombre }}</div>
+                                        {% endif %}
                                     {% endfor %}
+
                                 {% else %}
                                     <div class="t-sin-detalles">Sin detalles</div>
                                 {% endif %}
                             </div>
                         </td>
+
                         <td style="text-align:center;">
                             <span class="badge-estado {{ 'badge-consumida' if r.estado in ['consumida', 'retirada'] else 'badge-pendiente' }}">
                                 {{ 'RETIRADO' if r.estado in ['consumida', 'retirada'] else 'PENDIENTE' }}
@@ -303,11 +322,11 @@
     <!-- ── Lógica del filtro ── -->
     <script>
     (function () {
-        const tbody       = document.getElementById('tbody-entregas');
-        const inputBusq   = document.getElementById('filtro-busqueda');
-        const pills       = document.querySelectorAll('.pill-estado');
-        const contador    = document.getElementById('entrega-contador');
-        const filaVacia   = document.createElement('tr');
+        const tbody     = document.getElementById('tbody-entregas');
+        const inputBusq = document.getElementById('filtro-busqueda');
+        const pills     = document.querySelectorAll('.pill-estado');
+        const contador  = document.getElementById('entrega-contador');
+        const filaVacia = document.createElement('tr');
 
         filaVacia.className = 'fila-sin-resultados';
         filaVacia.innerHTML = '<td colspan="3">Sin resultados para los filtros aplicados.</td>';
@@ -320,8 +339,8 @@
             let visibles = 0;
 
             filas.forEach(function (tr) {
-                const estadoFila = tr.dataset.estado;   // 'pendiente' | 'retirado'
-                const textoFila  = tr.dataset.texto;    // nombre apellido rut en minúsculas
+                const estadoFila = tr.dataset.estado;
+                const textoFila  = tr.dataset.texto;
 
                 const pasaEstado = filtroEstado === 'todos' || estadoFila === filtroEstado;
                 const pasaBusq   = filtroBusq === '' || textoFila.includes(filtroBusq);
@@ -331,7 +350,6 @@
                 if (mostrar) visibles++;
             });
 
-            // Fila vacía cuando no hay resultados
             const yaVacia = tbody.contains(filaVacia);
             if (visibles === 0) {
                 if (!yaVacia) tbody.appendChild(filaVacia);
@@ -339,17 +357,14 @@
                 if (yaVacia) tbody.removeChild(filaVacia);
             }
 
-            // Actualizar contador
             contador.innerHTML = 'Mostrando <strong>' + visibles + '</strong> de <strong>' + filas.length + '</strong>';
         }
 
-        // Input de búsqueda
         inputBusq.addEventListener('input', function () {
             filtroBusq = this.value.trim().toLowerCase();
             aplicarFiltros();
         });
 
-        // Pills de estado
         pills.forEach(function (pill) {
             pill.addEventListener('click', function () {
                 pills.forEach(function (p) { p.classList.remove('active'); });
@@ -359,7 +374,6 @@
             });
         });
 
-        // Inicializar contador al cargar
         aplicarFiltros();
     })();
     </script>
