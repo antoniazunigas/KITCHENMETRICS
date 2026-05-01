@@ -347,6 +347,7 @@ def panel_admin():
 def admin_dashboard_principal():
     period = request.args.get('period', 'week')
     today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
+    manana = today + timedelta(days=1)
 
     current_reservas  = dashboard_service._reservas_base(start_date, today)
     previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
@@ -363,14 +364,15 @@ def admin_dashboard_principal():
     waste.pop('total_merma_cost', None)
     waste.pop('percent_desperdicio', None)
 
-    # ── FIX: query independiente para la tabla de gestión de reservas ──────────
+    # ── Reservas: hoy + mañana, ordenadas por fecha y estado ──────────────────
     from sqlalchemy import case
     reservas_gestion = (
         Reserva.query
         .join(JornadaCocina)
         .join(MenuDia)
-        .filter(MenuDia.fecha == today)
+        .filter(MenuDia.fecha.in_([today, manana]))
         .order_by(
+            MenuDia.fecha.asc(),
             case(
                 (Reserva.estado == 'confirmada', 0),
                 (Reserva.estado == 'no_retirada', 1),
@@ -381,7 +383,7 @@ def admin_dashboard_principal():
         .all()
     )
     listas['reservas_recientes'] = reservas_gestion
-    # ── FIN FIX ────────────────────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────────────────
 
     menus = MenuDia.query.filter(MenuDia.fecha >= today).order_by(MenuDia.fecha).all()
     menus_por_fecha = {
@@ -399,27 +401,25 @@ def admin_dashboard_principal():
     }
 
     platos_list = [
-        {
-            'id_plato':   p.id_plato,
-            'nombre':     p.nombre,
-            'tipo_plato': p.tipo_plato,
-            'tipo_dieta': p.tipo_dieta
-        }
+        {'id_plato': p.id_plato, 'nombre': p.nombre,
+         'tipo_plato': p.tipo_plato, 'tipo_dieta': p.tipo_dieta}
         for p in Plato.query.all()
     ]
 
-    from sqlalchemy import func
+    from sqlalchemy import func as sqlfunc
     rows = (
-        db.session.query(MermaIngrediente.fecha, func.count())
+        db.session.query(MermaIngrediente.fecha, sqlfunc.count())
         .group_by(MermaIngrediente.fecha)
         .filter(MermaIngrediente.fecha >= start_date)
         .all()
     )
     mermas_por_fecha = {str(r[0]): {'count': r[1]} for r in rows}
 
-    mermas_ingrediente_recientes = MermaIngrediente.query.order_by(
-        MermaIngrediente.fecha.desc()
-    ).limit(30).all()
+    mermas_ingrediente_recientes = (
+        MermaIngrediente.query
+        .order_by(MermaIngrediente.fecha.desc())
+        .limit(30).all()
+    )
 
     context = {}
     for d in (
@@ -431,15 +431,19 @@ def admin_dashboard_principal():
         {'platos_list': platos_list},
         {'mermas_por_fecha': mermas_por_fecha},
         {'lotes_list': LoteIngrediente.query.all()},
-        {'jornadas_list': JornadaCocina.query.order_by(JornadaCocina.id_jornada.desc()).limit(30).all()},
+        {'jornadas_list': JornadaCocina.query.order_by(
+            JornadaCocina.id_jornada.desc()).limit(30).all()},
         {'mermas_recientes': mermas_ingrediente_recientes},
     ):
         for k, v in d.items():
             if k not in context:
                 context[k] = v
 
-    # ── FIX: volver a incluir inventario ───────────────────────────────────────
+    # ── Inventario ─────────────────────────────────────────────────────────────
     context.update(dashboard_service.get_inventory_context())
+
+    # ── Usuarios — FALTABA esta llamada, causaba todos los contadores en 0 ────
+    context.update(dashboard_service.get_users_context())
     # ──────────────────────────────────────────────────────────────────────────
 
     return render_template(
@@ -449,6 +453,7 @@ def admin_dashboard_principal():
         period_label=period_label,
         start_date_str=start_date.strftime('%Y-%m-%d'),
         today_str=today.strftime('%Y-%m-%d'),
+        manana_str=manana.strftime('%Y-%m-%d'),
         current_year=today.year,
         **context
     )

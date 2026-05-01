@@ -2,23 +2,18 @@
 
 <div class="d-flex flex-column gap-3">
 
-  <!-- Encabezado -->
   <div class="card p-3">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
       <div>
         <h4 class="mb-1 fw-bold">Gestión de Reservas</h4>
-        <div class="text-muted small">
-          Administra, filtra y elimina reservas de usuarios.
-        </div>
+        <div class="text-muted small">Administra, filtra y elimina reservas de hoy y mañana.</div>
       </div>
     </div>
   </div>
 
-  <!-- Filtros -->
   <div class="card p-3">
     <div class="d-flex flex-column gap-3">
 
-      <!-- Fila: búsqueda + limpiar -->
       <div class="d-flex flex-column flex-md-row gap-3 align-items-md-end">
         <div class="flex-grow-1">
           <label class="form-label mb-1 text-muted small">Buscar por nombre o RUT</label>
@@ -30,14 +25,23 @@
         </div>
       </div>
 
-      <!-- Fila: pills de estado + contador -->
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <span class="text-muted small me-1">Estado:</span>
-        <button class="btn btn-sm btn-success reserva-pill active" data-estado-filtro="todos">Todos</button>
-        <button class="btn btn-sm btn-outline-primary reserva-pill"  data-estado-filtro="confirmada">Confirmada</button>
-        <button class="btn btn-sm btn-outline-success reserva-pill"  data-estado-filtro="consumida">Consumida</button>
-        <!-- <button class="btn btn-sm btn-outline-warning reserva-pill"  data-estado-filtro="no_retirada">No retirada</button>
-        <button class="btn btn-sm btn-outline-danger reserva-pill"   data-estado-filtro="cancelada">Cancelada</button> -->
+      <div class="d-flex flex-wrap gap-3 align-items-center">
+
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted small">Fecha:</span>
+          <button class="btn btn-sm btn-secondary reserva-pill-fecha active"  data-fecha-filtro="todos">Todos</button>
+          <button class="btn btn-sm btn-outline-secondary reserva-pill-fecha" data-fecha-filtro="hoy">Hoy</button>
+          <button class="btn btn-sm btn-outline-secondary reserva-pill-fecha" data-fecha-filtro="manana">Mañana</button>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted small">Estado:</span>
+          <button class="btn btn-sm btn-success reserva-pill active"   data-estado-filtro="todos">Todos</button>
+          <button class="btn btn-sm btn-outline-primary reserva-pill"  data-estado-filtro="confirmada">Confirmada</button>
+          <button class="btn btn-sm btn-outline-success reserva-pill"  data-estado-filtro="consumida">Consumida</button>
+          <!-- <button class="btn btn-sm btn-outline-warning reserva-pill"  data-estado-filtro="no_retirada">No retirada</button>
+          <button class="btn btn-sm btn-outline-danger reserva-pill"   data-estado-filtro="cancelada">Cancelada</button> -->
+        </div>
 
         <span class="ms-auto text-muted small">
           Mostrando <strong id="shownCount">{{ total_reservas }}</strong>
@@ -48,12 +52,11 @@
     </div>
   </div>
 
-  <!-- Tabla -->
   <div class="card p-3">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div>
-        <h5 class="mb-1">Lista de usuarios con reservas</h5>
-        <div class="text-muted small">Filtra por texto o estado. Las filas se ocultan en tiempo real.</div>
+        <h5 class="mb-1">Lista de reservas</h5>
+        <div class="text-muted small">Hoy y mañana · Filtra por fecha, estado o texto.</div>
       </div>
       <button id="toggleMoreBtn" class="btn btn-outline-success btn-sm"
               {% if total_reservas <= 10 %}style="display:none;"{% endif %}>
@@ -73,56 +76,53 @@
             <th>Estado</th>
           </tr>
         </thead>
-
         <tbody id="reservasTableBody">
           {% for r in reservas_recientes %}
+          {% set fecha_menu = r.jornada.menu_dia.fecha if r.jornada and r.jornada.menu_dia else none %}
+          {% set es_manana  = fecha_menu and (fecha_menu.strftime('%Y-%m-%d') > today_str) %}
           <tr class="reserva-row {% if loop.index > 10 %}d-none{% endif %}"
               data-rut="{{ r.usuario.rut if r.usuario else '' }}"
-              data-nombre="{{ (r.usuario.nombre ~ ' ' ~ r.usuario.apellido)|lower if r.usuario else '' }}"
               data-texto="{{ ((r.usuario.nombre ~ ' ' ~ r.usuario.apellido ~ ' ' ~ r.usuario.rut)|lower) if r.usuario else '' }}"
-              data-estado-row="{{ r.estado }}">
+              data-estado-row="{{ r.estado }}"
+              data-dia="{{ 'manana' if es_manana else 'hoy' }}">
 
             <td>
-              <div class="fw-semibold">
-                {{ r.usuario.nombre ~ ' ' ~ r.usuario.apellido if r.usuario else 'N/A' }}
-              </div>
-              <div class="small text-muted">
-                {{ r.usuario.email if r.usuario else '' }}
-              </div>
+              <div class="fw-semibold">{{ r.usuario.nombre ~ ' ' ~ r.usuario.apellido if r.usuario else 'N/A' }}</div>
+              <div class="small text-muted">{{ r.usuario.email if r.usuario else '' }}</div>
             </td>
 
             <td><span class="badge-km">{{ r.usuario.rut if r.usuario else 'N/A' }}</span></td>
 
-            <td>{{ r.fecha_reserva.strftime('%d-%m-%Y %H:%M') if r.fecha_reserva else '' }}</td>
+            <td>
+              {{ r.fecha_reserva.strftime('%d-%m-%Y %H:%M') if r.fecha_reserva else '' }}
+              <div class="small mt-1">
+                {% if es_manana %}
+                  <span class="badge bg-secondary-subtle text-secondary">Mañana</span>
+                {% else %}
+                  <span class="badge bg-primary-subtle text-primary">Hoy</span>
+                {% endif %}
+              </div>
+            </td>
 
             <td>
-              {{ r.jornada.menu_dia.fecha.strftime('%d-%m-%Y') if r.jornada and r.jornada.menu_dia else 'Sin fecha' }}
+              {{ fecha_menu.strftime('%d-%m-%Y') if fecha_menu else 'Sin fecha' }}
               <div class="small text-muted">Jornada #{{ r.jornada.id_jornada if r.jornada else 'N/A' }}</div>
             </td>
 
-            <!-- ACCIONES -->
             <td>
               <div class="d-flex gap-2 flex-wrap">
-                <button class="btn btn-sm btn-success action-btn"
-                        title="Confirmar"
-                        data-id="{{ r.id_reserva }}"
-                        data-action="confirmar"
+                <button class="btn btn-sm btn-success action-btn" title="Confirmar"
+                        data-id="{{ r.id_reserva }}" data-action="confirmar"
                         {% if r.estado == 'confirmada' %}disabled{% endif %}>✔</button>
-
-                <button class="btn btn-sm btn-warning action-btn"
-                        title="Cancelar"
-                        data-id="{{ r.id_reserva }}"
-                        data-action="cancelar"
+                <button class="btn btn-sm btn-warning action-btn" title="Cancelar"
+                        data-id="{{ r.id_reserva }}" data-action="cancelar"
                         {% if r.estado == 'cancelada' %}disabled{% endif %}>✖</button>
-
-                <button class="btn btn-sm btn-outline-danger delete-reserva-btn"
-                        title="Eliminar reserva"
+                <button class="btn btn-sm btn-outline-danger delete-reserva-btn" title="Eliminar"
                         data-id="{{ r.id_reserva }}"
                         data-nombre="{{ r.usuario.nombre ~ ' ' ~ r.usuario.apellido if r.usuario else 'esta reserva' }}">🗑</button>
               </div>
             </td>
 
-            <!-- ESTADO -->
             <td>
               <span id="estado-{{ r.id_reserva }}">
                 {% if r.estado == 'confirmada' %}
@@ -143,12 +143,9 @@
           {% endfor %}
         </tbody>
       </table>
-
-      <!-- Fila vacía cuando no hay resultados -->
       <div id="reservas-empty-row" class="text-center py-4 text-muted small d-none">
         Sin resultados para los filtros aplicados.
       </div>
     </div>
-
   </div>
 </div>
