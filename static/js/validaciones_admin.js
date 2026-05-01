@@ -1,83 +1,8 @@
-/* -----------------------------------------------------------------------------
-   RESERVAS — includes_dashboard/reservas.html
-   Búsqueda por RUT, toggle expand, confirmar/cancelar reserva vía fetch
-   ----------------------------------------------------------------------------- */
-(function () {
-  const searchInput = document.getElementById('rutSearch');
-  const clearBtn    = document.getElementById('clearRutSearch');
-  const toggleBtn   = document.getElementById('toggleMoreBtn');
-  const rows        = Array.from(document.querySelectorAll('.reserva-row'));
-
-  let expanded = false;
-
-  function applyFilter() {
-    const term = (searchInput.value || '').toLowerCase();
-    let shown  = 0;
-
-    rows.forEach((row, index) => {
-      const rut     = row.dataset.rut.toLowerCase();
-      const matches = !term || rut.includes(term);
-      const visible = matches && (expanded || index < 10);
-
-      row.classList.toggle('d-none', !visible);
-      if (visible) shown++;
-    });
-
-    document.getElementById('shownCount').textContent = shown;
-  }
-
-  if (searchInput) searchInput.addEventListener('input', applyFilter);
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      searchInput.value  = '';
-      expanded           = false;
-      if (toggleBtn) toggleBtn.textContent = 'Mostrar más';
-      applyFilter();
-    });
-  }
-
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      expanded           = !expanded;
-      toggleBtn.textContent = expanded ? 'Mostrar menos' : 'Mostrar más';
-      applyFilter();
-    });
-  }
-
-  // Acciones: confirmar / cancelar reserva
-  document.querySelectorAll('.action-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id     = btn.dataset.id;
-      const accion = btn.dataset.action;
-
-      const res  = await fetch('/admin/reserva/update_estado', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ id_reserva: id, accion: accion }),
-      });
-
-      const data = await res.json();
-      if (data.success) actualizarEstado(id, data.nuevo_estado);
-    });
-  });
-
-  function actualizarEstado(id, estado) {
-    const el = document.getElementById(`estado-${id}`);
-
-    if (estado === 'confirmada') {
-      el.innerHTML = `<span class="badge rounded-pill bg-primary-subtle text-primary px-3 py-2">Confirmada</span>`;
-    } else if (estado === 'cancelada') {
-      el.innerHTML = `<span class="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">Cancelada</span>`;
-    }
-
-    const row = el.closest('tr');
-    row.querySelector('[data-action="confirmar"]').disabled = estado === 'confirmada';
-    row.querySelector('[data-action="cancelar"]').disabled  = estado === 'cancelada';
-  }
-
-  applyFilter();
-})();
+/* =============================================================================
+   validaciones_admin.js — KitchenMetrics
+   Módulos: INVENTARIO · MERMAS · USUARIOS
+   (RESERVAS fue movido a dashboard.js)
+   ============================================================================= */
 
 
 /* -----------------------------------------------------------------------------
@@ -245,15 +170,15 @@
   const shownCountEl = document.getElementById('shownUsersCount');
   const totalCountEl = document.getElementById('totalUsersCount');
 
-  const editForm      = document.getElementById('editUserForm');
-  const editRol       = document.getElementById('edit_id_rol');
-  const editRut       = document.getElementById('edit_rut');
-  const editNombre    = document.getElementById('edit_nombre');
-  const editApellido  = document.getElementById('edit_apellido');
-  const editEmail     = document.getElementById('edit_email');
+  const editForm       = document.getElementById('editUserForm');
+  const editRol        = document.getElementById('edit_id_rol');
+  const editRut        = document.getElementById('edit_rut');
+  const editNombre     = document.getElementById('edit_nombre');
+  const editApellido   = document.getElementById('edit_apellido');
+  const editEmail      = document.getElementById('edit_email');
   const editContrasena = document.getElementById('edit_contrasena');
-  const editFaltas    = document.getElementById('edit_faltas');
-  const editEstado    = document.getElementById('edit_estado');
+  const editFaltas     = document.getElementById('edit_faltas');
+  const editEstado     = document.getElementById('edit_estado');
 
   const dynamicBtns     = Array.from(document.querySelectorAll('.user-view-btn'));
   const dynamicSections = Array.from(document.querySelectorAll('.user-dynamic-section'));
@@ -307,15 +232,15 @@
   document.querySelectorAll('.edit-user-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
-      editForm.action      = `/admin/usuario/editar/${id}`;
-      editRol.value        = btn.dataset.rol      || '';
-      editRut.value        = btn.dataset.rut      || '';
-      editNombre.value     = btn.dataset.nombre   || '';
-      editApellido.value   = btn.dataset.apellido || '';
-      editEmail.value      = btn.dataset.email    || '';
-      editContrasena.value = '';
-      editFaltas.value     = btn.dataset.faltas   || 0;
-      editEstado.value     = btn.dataset.estado   || 'activo';
+      editForm.action       = `/admin/usuario/editar/${id}`;
+      editRol.value         = btn.dataset.rol      || '';
+      editRut.value         = btn.dataset.rut      || '';
+      editNombre.value      = btn.dataset.nombre   || '';
+      editApellido.value    = btn.dataset.apellido || '';
+      editEmail.value       = btn.dataset.email    || '';
+      editContrasena.value  = '';
+      editFaltas.value      = btn.dataset.faltas   || 0;
+      editEstado.value      = btn.dataset.estado   || 'activo';
     });
   });
 
@@ -324,7 +249,6 @@
     btn.addEventListener('click', () => {
       const id     = btn.dataset.id;
       const nombre = btn.dataset.nombre || '';
-
       if (deleteForm) deleteForm.action      = `/admin/usuario/eliminar/${id}`;
       if (deleteName) deleteName.textContent = nombre;
     });

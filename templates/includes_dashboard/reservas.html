@@ -1,5 +1,4 @@
 {% set total_reservas = reservas_recientes|length %}
-{% set reservas_visibles = reservas_recientes[:10] %}
 
 <div class="d-flex flex-column gap-3">
 
@@ -9,33 +8,43 @@
       <div>
         <h4 class="mb-1 fw-bold">Gestión de Reservas</h4>
         <div class="text-muted small">
-          Administra y revisa las reservas de usuarios por RUT, fecha y estado.
+          Administra, filtra y elimina reservas de usuarios.
         </div>
       </div>
-
-
     </div>
   </div>
 
   <!-- Filtros -->
   <div class="card p-3">
-    <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
-      <div class="d-flex flex-column flex-md-row gap-3 flex-grow-1">
+    <div class="d-flex flex-column gap-3">
+
+      <!-- Fila: búsqueda + limpiar -->
+      <div class="d-flex flex-column flex-md-row gap-3 align-items-md-end">
         <div class="flex-grow-1">
-          <label class="form-label mb-1 text-muted small">Buscar por RUT</label>
-          <input type="text" id="rutSearch" class="form-control form-control-sm" placeholder="Ej: 184562346">
+          <label class="form-label mb-1 text-muted small">Buscar por nombre o RUT</label>
+          <input type="text" id="rutSearch" class="form-control form-control-sm"
+                 placeholder="Ej: Juan Pérez  o  184562346" autocomplete="off">
         </div>
-
-        <div class="d-flex align-items-end">
-          <button id="clearRutSearch" class="btn btn-outline-secondary btn-sm">
-            Limpiar
-          </button>
+        <div>
+          <button id="clearRutSearch" class="btn btn-outline-secondary btn-sm">Limpiar</button>
         </div>
       </div>
 
-      <div class="text-muted small">
-        Mostrando <strong>{{ reservas_visibles|length }}</strong> de <strong>{{ total_reservas }}</strong> reservas
+      <!-- Fila: pills de estado + contador -->
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="text-muted small me-1">Estado:</span>
+        <button class="btn btn-sm btn-success reserva-pill active" data-estado-filtro="todos">Todos</button>
+        <button class="btn btn-sm btn-outline-primary reserva-pill"  data-estado-filtro="confirmada">Confirmada</button>
+        <button class="btn btn-sm btn-outline-success reserva-pill"  data-estado-filtro="consumida">Consumida</button>
+        <!-- <button class="btn btn-sm btn-outline-warning reserva-pill"  data-estado-filtro="no_retirada">No retirada</button>
+        <button class="btn btn-sm btn-outline-danger reserva-pill"   data-estado-filtro="cancelada">Cancelada</button> -->
+
+        <span class="ms-auto text-muted small">
+          Mostrando <strong id="shownCount">{{ total_reservas }}</strong>
+          de <strong id="totalCount">{{ total_reservas }}</strong>
+        </span>
       </div>
+
     </div>
   </div>
 
@@ -44,10 +53,10 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div>
         <h5 class="mb-1">Lista de usuarios con reservas</h5>
-        <div class="text-muted small">Se muestran primero 10 reservas y puedes expandir el listado.</div>
+        <div class="text-muted small">Filtra por texto o estado. Las filas se ocultan en tiempo real.</div>
       </div>
-
-      <button id="toggleMoreBtn" class="btn btn-outline-success btn-sm" {% if total_reservas <= 10 %}style="display:none;"{% endif %}>
+      <button id="toggleMoreBtn" class="btn btn-outline-success btn-sm"
+              {% if total_reservas <= 10 %}style="display:none;"{% endif %}>
         Mostrar más
       </button>
     </div>
@@ -58,7 +67,7 @@
           <tr>
             <th>Usuario</th>
             <th>RUT</th>
-            <th>Fecha</th>
+            <th>Fecha reserva</th>
             <th>Jornada</th>
             <th>Acciones</th>
             <th>Estado</th>
@@ -69,7 +78,9 @@
           {% for r in reservas_recientes %}
           <tr class="reserva-row {% if loop.index > 10 %}d-none{% endif %}"
               data-rut="{{ r.usuario.rut if r.usuario else '' }}"
-              data-nombre="{{ (r.usuario.nombre ~ ' ' ~ r.usuario.apellido) if r.usuario else '' }}">
+              data-nombre="{{ (r.usuario.nombre ~ ' ' ~ r.usuario.apellido)|lower if r.usuario else '' }}"
+              data-texto="{{ ((r.usuario.nombre ~ ' ' ~ r.usuario.apellido ~ ' ' ~ r.usuario.rut)|lower) if r.usuario else '' }}"
+              data-estado-row="{{ r.estado }}">
 
             <td>
               <div class="fw-semibold">
@@ -91,20 +102,23 @@
 
             <!-- ACCIONES -->
             <td>
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 flex-wrap">
                 <button class="btn btn-sm btn-success action-btn"
+                        title="Confirmar"
                         data-id="{{ r.id_reserva }}"
                         data-action="confirmar"
-                        {% if r.estado == 'confirmada' %}disabled{% endif %}>
-                  ✔
-                </button>
+                        {% if r.estado == 'confirmada' %}disabled{% endif %}>✔</button>
 
-                <button class="btn btn-sm btn-danger action-btn"
+                <button class="btn btn-sm btn-warning action-btn"
+                        title="Cancelar"
                         data-id="{{ r.id_reserva }}"
                         data-action="cancelar"
-                        {% if r.estado == 'cancelada' %}disabled{% endif %}>
-                  ✖
-                </button>
+                        {% if r.estado == 'cancelada' %}disabled{% endif %}>✖</button>
+
+                <button class="btn btn-sm btn-outline-danger delete-reserva-btn"
+                        title="Eliminar reserva"
+                        data-id="{{ r.id_reserva }}"
+                        data-nombre="{{ r.usuario.nombre ~ ' ' ~ r.usuario.apellido if r.usuario else 'esta reserva' }}">🗑</button>
               </div>
             </td>
 
@@ -113,10 +127,10 @@
               <span id="estado-{{ r.id_reserva }}">
                 {% if r.estado == 'confirmada' %}
                   <span class="badge rounded-pill bg-primary-subtle text-primary px-3 py-2">Confirmada</span>
-                {% elif r.estado == 'consumida' %}
+                {% elif r.estado in ['consumida', 'retirada'] %}
                   <span class="badge rounded-pill bg-success-subtle text-success px-3 py-2">Consumida</span>
-                {% elif r.estado == 'no consumida' %}
-                  <span class="badge rounded-pill bg-warning-subtle text-warning px-3 py-2">No consumida</span>
+                {% elif r.estado == 'no_retirada' %}
+                  <span class="badge rounded-pill bg-warning-subtle text-warning px-3 py-2">No retirada</span>
                 {% elif r.estado == 'cancelada' %}
                   <span class="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">Cancelada</span>
                 {% else %}
@@ -129,11 +143,12 @@
           {% endfor %}
         </tbody>
       </table>
+
+      <!-- Fila vacía cuando no hay resultados -->
+      <div id="reservas-empty-row" class="text-center py-4 text-muted small d-none">
+        Sin resultados para los filtros aplicados.
+      </div>
     </div>
 
-    <div class="text-center mt-2 small text-muted">
-      Mostrando <strong id="shownCount">{{ reservas_visibles|length }}</strong> de <strong id="totalCount">{{ total_reservas }}</strong>
-    </div>
   </div>
 </div>
-

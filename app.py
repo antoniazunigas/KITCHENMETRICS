@@ -347,41 +347,112 @@ def panel_admin():
 def admin_dashboard_principal():
     period = request.args.get('period', 'week')
     today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
-    
-    current_reservas = dashboard_service._reservas_base(start_date, today)
-    previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
-    
-    # 1. Obtenemos los KPIs generales
-    kpis = dashboard_service.calculate_dashboard_kpis(start_date, today, prev_start, prev_end, current_reservas, previous_reservas)
-    
-    # 2. Obtenemos los datos de mermas (donde incluimos tu tabla de cocina)
-    waste_data = dashboard_service.get_waste_context(start_date, today)
-    
-    # 3. ¡EL TRUCO FINAL!: Borramos la variable duplicada de kpis para que no choque con waste_data
-    kpis.pop('total_merma_cost', None)
-    kpis.pop('percent_desperdicio', None) # También por si acaso
 
-    listas, charts = dashboard_service.get_dashboard_lists(start_date, today, current_reservas), dashboard_service.generate_dashboard_charts(start_date, today)
-    
-    extras = {
-        'usuarios_count': Usuario.query.count(),
-        'menus_count': MenuDia.query.filter(MenuDia.fecha.between(start_date, today)).count()
+    current_reservas  = dashboard_service._reservas_base(start_date, today)
+    previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
+
+    kpis   = dashboard_service.calculate_dashboard_kpis(
+        start_date, today, prev_start, prev_end, current_reservas, previous_reservas
+    )
+    listas = dashboard_service.get_dashboard_lists(start_date, today, current_reservas)
+    charts = dashboard_service.generate_dashboard_charts(start_date, today)
+    waste  = dashboard_service.get_waste_context(start_date, today)
+
+    kpis.pop('total_merma_cost', None)
+    kpis.pop('percent_desperdicio', None)
+    waste.pop('total_merma_cost', None)
+    waste.pop('percent_desperdicio', None)
+
+    # ── FIX: query independiente para la tabla de gestión de reservas ──────────
+    from sqlalchemy import case
+    reservas_gestion = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(MenuDia.fecha == today)
+        .order_by(
+            case(
+                (Reserva.estado == 'confirmada', 0),
+                (Reserva.estado == 'no_retirada', 1),
+                else_=2
+            ),
+            Reserva.fecha_reserva.desc()
+        )
+        .all()
+    )
+    listas['reservas_recientes'] = reservas_gestion
+    # ── FIN FIX ────────────────────────────────────────────────────────────────
+
+    menus = MenuDia.query.filter(MenuDia.fecha >= today).order_by(MenuDia.fecha).all()
+    menus_por_fecha = {
+        str(m.fecha): {
+            'id_menu': m.id_menu,
+            'estado': m.estado,
+            'detalles': [{'orden': d.orden, 'id_plato': d.id_plato} for d in m.detalles],
+            'jornada': {
+                'raciones_planificadas': m.jornadas[0].raciones_planificadas if m.jornadas else 100,
+                'raciones_preparadas':   m.jornadas[0].raciones_preparadas   if m.jornadas else 0,
+                'raciones_disponibles':  m.jornadas[0].raciones_disponibles  if m.jornadas else 0,
+            }
+        }
+        for m in menus
     }
 
-    return render_template('dashboard.html',
-        nombre=session.get('user_nombre'), 
-        period=period, 
+    platos_list = [
+        {
+            'id_plato':   p.id_plato,
+            'nombre':     p.nombre,
+            'tipo_plato': p.tipo_plato,
+            'tipo_dieta': p.tipo_dieta
+        }
+        for p in Plato.query.all()
+    ]
+
+    from sqlalchemy import func
+    rows = (
+        db.session.query(MermaIngrediente.fecha, func.count())
+        .group_by(MermaIngrediente.fecha)
+        .filter(MermaIngrediente.fecha >= start_date)
+        .all()
+    )
+    mermas_por_fecha = {str(r[0]): {'count': r[1]} for r in rows}
+
+    mermas_ingrediente_recientes = MermaIngrediente.query.order_by(
+        MermaIngrediente.fecha.desc()
+    ).limit(30).all()
+
+    context = {}
+    for d in (
+        kpis,
+        listas,
+        charts,
+        waste,
+        {'menus_por_fecha': menus_por_fecha},
+        {'platos_list': platos_list},
+        {'mermas_por_fecha': mermas_por_fecha},
+        {'lotes_list': LoteIngrediente.query.all()},
+        {'jornadas_list': JornadaCocina.query.order_by(JornadaCocina.id_jornada.desc()).limit(30).all()},
+        {'mermas_recientes': mermas_ingrediente_recientes},
+    ):
+        for k, v in d.items():
+            if k not in context:
+                context[k] = v
+
+    # ── FIX: volver a incluir inventario ───────────────────────────────────────
+    context.update(dashboard_service.get_inventory_context())
+    # ──────────────────────────────────────────────────────────────────────────
+
+    return render_template(
+        'dashboard.html',
+        nombre=session.get('user_nombre'),
+        period=period,
         period_label=period_label,
-        start_date_str=start_date.strftime('%Y-%m-%d'), 
+        start_date_str=start_date.strftime('%Y-%m-%d'),
         today_str=today.strftime('%Y-%m-%d'),
-        current_year=today.year, 
-        **kpis, 
-        **listas, 
-        **charts, 
-        **extras,
-        **dashboard_service.get_inventory_context(),
-        **waste_data, # Ahora este entra solito sin pelearse con nadie
-        **dashboard_service.get_users_context())
+        current_year=today.year,
+        **context
+    )
+
 
 @app.route('/admin/usuario/crear', methods=['POST'])
 @login_required(role='admin')
@@ -500,6 +571,30 @@ def admin_usuario_desbloquear(id_usuario):
     except Exception: db.session.rollback(); flash("Ocurrió un error al desbloquear el usuario.","danger")
     return redirect(request.referrer or url_for('admin_dashboard_principal'))
 
+@app.route('/admin/reserva/eliminar', methods=['POST'])
+@login_required(role='admin')
+def admin_reserva_eliminar():
+    from flask import jsonify
+    data       = request.get_json(silent=True) or {}
+    id_reserva = data.get('id_reserva')
+ 
+    if not id_reserva:
+        return jsonify({'success': False, 'error': 'id_reserva requerido'}), 400
+ 
+    reserva = db.session.get(Reserva, int(id_reserva))
+    if not reserva:
+        return jsonify({'success': False, 'error': 'Reserva no encontrada'}), 404
+ 
+    try:
+        # Eliminar consumos asociados primero (FK constraint)
+        Consumo.query.filter_by(id_reserva=reserva.id_reserva).delete()
+        db.session.delete(reserva)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
 
 # REPORTEES CSV PARA DESCARGA DESDE DASHBOARD
 @app.route('/admin/dashboard/exportar-csv')
