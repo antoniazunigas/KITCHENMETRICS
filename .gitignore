@@ -22,4 +22,5 @@ alembic.ini
 *.swp
 *.swo
 .DS_Store
+claude.md
 Thumbs.db

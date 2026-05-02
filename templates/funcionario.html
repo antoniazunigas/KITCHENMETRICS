@@ -2,169 +2,344 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KitchenMetrics - Panel Funcionario</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>KitchenMetrics – Panel Funcionario</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/funcionario.css') }}">
 </head>
-<body class="dashboard-body">
+<body>
 
+    <!-- ===== HEADER ===== -->
     <header>
-        <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo" class="header-logo">
+        <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="KitchenMetrics" class="header-logo">
         <div class="user-info">
             <span class="user-name">👤 {{ nombre }}</span>
-            <a href="/logout" class="logout-btn">CERRAR SESIÓN</a>
+            <a href="/logout" class="logout-btn">Salir</a>
         </div>
     </header>
 
-    <main class="container">
+    <!-- ===== MAIN ===== -->
+    <main>
+
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert" style="padding:15px; margin-bottom:20px; border-radius:10px; background:#d4edda; color:#155724; border:1px solid">
-                {{ message }}
-              </div>
+              <div class="flash {{ category }}">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <div class="card">
-            <h2>🍴 Reserva de Almuerzo Anticipada</h2>
-            <p class="text-muted">Selecciona **una** de las opciones disponibles para el servicio de mañana.</p>
+        <!-- ===== CARD: RESERVA ACTIVA PARA HOY ===== -->
+        {% if reserva_activa %}
+        <div class="card card-reserva-activa">
+            <div class="reserva-activa-inner">
+                <h3>✅ Tienes una reserva para hoy</h3>
+                <p>Dirígete al casino y escanea el código QR del panel de cocina para confirmar tu retiro.</p>
 
-            <div class="table-responsive">
-                <table>
+                <div class="detalle-menu-box">
+                    <div class="menu-fecha-label">
+                        🗓 Tu menú reservado — {{ reserva_activa.jornada.menu_dia.fecha.strftime('%d/%m/%Y') }}
+                    </div>
+                    {% for det in reserva_activa.jornada.menu_dia.detalles | sort(attribute='orden') %}
+                        {% if det.orden == 1 %}
+                        <div class="plato-linea-sm">🥗 Entrada: <strong>{{ det.plato.nombre }}</strong></div>
+                        {% elif det.orden in [2,3,4] and (reserva_activa.id_plato_fondo is none or det.id_plato == reserva_activa.id_plato_fondo) %}
+                        <div class="fondo-box">
+                            <div class="fondo-tipo">Plato de Fondo</div>
+                            <div class="fondo-nombre">🍲 {{ det.plato.nombre }}</div>
+                        </div>
+                        {% elif det.orden == 5 %}
+                        <div class="plato-linea-sm-pos">🍰 Postre: <strong>{{ det.plato.nombre }}</strong></div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <button class="btn-qr" onclick="abrirScanner()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        <path d="M14 14h.01M18 14h3M14 18v3M18 18h3v3"/>
+                    </svg>
+                    Escanear QR de Retiro
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ===== CARD: MENÚ DE MAÑANA ===== -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🍴 Reserva de Almuerzo para Mañana</h2>
+                <p>Selecciona una de las opciones disponibles para el servicio de mañana.</p>
+            </div>
+            <div class="menu-table-wrapper">
+                <table class="menu-table">
                     <thead>
                         <tr>
                             <th>Detalle del Menú</th>
-                            <th class="text-center">Acción</th>
+                            <th class="th-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
-    {% if jornadas %}
-        {% for jornada in jornadas %}
-            {% if jornada.menu_dia and jornada.menu_dia.detalles %}
-                {# Buscamos todos los platos de fondo (orden 2, 3 y 4) #}
-                {% for d in jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
-                <tr>
-                    <td style="padding: 20px;">
-                        <div style="margin-bottom: 12px;">
-                            <strong style="color: #2c3e50; font-size: 1.1rem; text-transform: uppercase;">
-                                🍱 Opción {{ loop.index }}
-                            </strong>
-                        </div>
-                        
-                        <div class="detalle-menu-container" style="display: grid; gap: 8px; margin-left: 10px;">
-                            {# 1. ENTRADA (La misma para todas las opciones) #}
-                            {% for e in jornada.menu_dia.detalles if e.orden == 1 %}
-                                <div style="color: #666; font-size: 0.9rem;">
-                                    <span>🥗 ENTRADA:</span> <strong>{{ e.plato.nombre }}</strong>
-                                </div>
-                            {% endfor %}
-                            
-                            {# 2. PLATO DE FONDO ESPECÍFICO DE ESTA FILA #}
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 5px solid #e67e22; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; border-left: 5px solid #e67e22;">
-                                <div>
-                                    <small style="color: #e67e22; font-weight: bold; display: block; text-transform: uppercase; font-size: 0.7rem;">Plato de Fondo</small>
-                                    <span style="font-size: 1.15rem; font-weight: bold; color: #2c3e50;">🍲 {{ d.plato.nombre }}</span>
-                                </div>
-                                
-                                {% if 'vegano' in d.plato.nombre.lower() or 'vegetariana' in d.plato.nombre.lower() or d.id_plato in [7, 9] %}
-                                    <span style="padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #d4edda; color: #155724; border: 1px solid #c3e6cb;">VEGANO</span>
-                                {% else %}
-                                    <span style="padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; background: #e8f4fd; color: #2980b9; border: 1px solid #d1e9f7;">NORMAL</span>
-                                {% endif %}
-                            </div>
-                            
-                            {# 3. POSTRE (El mismo para todas las opciones) #}
-                            {% for p in jornada.menu_dia.detalles if p.orden == 5 %}
-                                <div style="color: #666; font-size: 0.9rem;">
-                                    <span>🍰 POSTRE:</span> <strong>{{ p.plato.nombre }}</strong>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </td>
+                    {% if jornadas %}
+                        {% for jornada in jornadas %}
+                            {% if jornada.menu_dia and jornada.menu_dia.detalles %}
+                                {% for d in jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
+                                <tr>
+                                    <td>
+                                        <div class="opcion-label">🍱 Opción {{ loop.index }}</div>
+                                        <div class="plato-row">
+                                            {% for e in jornada.menu_dia.detalles if e.orden == 1 %}
+                                            <div class="plato-linea">🥗 Entrada: <strong>{{ e.plato.nombre }}</strong></div>
+                                            {% endfor %}
 
-                    <td class="text-center" style="vertical-align: middle; width: 220px; border-left: 1px solid #eee;">
-                        {# Creamos un botón de reserva independiente para este plato #}
-                        <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
-                            {# Pasamos el ID del plato para que el sistema sepa cuál eligió #}
-                            <input type="hidden" name="id_plato_seleccionado" value="{{ d.id_plato }}">
-                            
-                            <button type="submit" class="btn-action" 
-                                {% if reserva_activa or jornada.raciones_disponibles == 0 %}
-                                    disabled style="opacity:0.6; cursor:not-allowed; background: #bdc3c7; border:none; color: white;"
-                                {% endif %}
-                                style="width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer;">
-                                {% if reserva_activa %} 
-                                    ✅ Reservado 
-                                {% elif jornada.raciones_disponibles == 0 %} 
-                                    🚫 Agotado 
-                                {% else %} 
-                                    RESERVAR {{ d.plato.nombre|upper }}
-                                {% endif %}
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
-    {% else %}
-        <tr><td colspan="2" style="text-align:center; padding: 50px; color: #95a5a6;">No hay menús programados.</td></tr>
-    {% endif %}
-</tbody>
+                                            <div class="plato-fondo">
+                                                <div>
+                                                    <div class="plato-fondo-tipo">Plato de Fondo</div>
+                                                    <div class="plato-fondo-nombre">🍲 {{ d.plato.nombre }}</div>
+                                                </div>
+                                                {% if 'vegano' in d.plato.nombre.lower() or 'vegetariana' in d.plato.nombre.lower() or d.id_plato in [7, 9] %}
+                                                    <span class="badge-dieta badge-vegano">VEGANO</span>
+                                                {% else %}
+                                                    <span class="badge-dieta badge-normal">NORMAL</span>
+                                                {% endif %}
+                                            </div>
+
+                                            {% for p in jornada.menu_dia.detalles if p.orden == 5 %}
+                                            <div class="plato-linea">🍰 Postre: <strong>{{ p.plato.nombre }}</strong></div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="td-accion">
+                                        <form action="{{ url_for('reservar', id_jornada=jornada.id_jornada) }}" method="POST">
+                                            <input type="hidden" name="id_plato_seleccionado" value="{{ d.id_plato }}">
+                                            <button type="submit" class="btn-reservar
+                                                {% if reserva_manana %}reservado
+                                                {% elif jornada.raciones_disponibles == 0 %}agotado{% endif %}"
+                                                {% if reserva_manana or jornada.raciones_disponibles == 0 %}disabled{% endif %}>
+                                                {% if reserva_manana %}✅ Reservado
+                                                {% elif jornada.raciones_disponibles == 0 %}🚫 Agotado
+                                                {% else %}Reservar esta opción{% endif %}
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="2" class="empty-state">No hay menús programados para mañana.</td></tr>
+                    {% endif %}
+                    </tbody>
                 </table>
             </div>
         </div>
 
+        <!-- ===== CARD: ASISTENCIA ===== -->
         <div class="card card-asistencia">
-            <div class="asistencia-info">
-                <h3>Mi Estado de Asistencia</h3>
-                <p>Tu compromiso con el servicio de alimentación.</p>
-            </div>
-            
-            <div class="badge-contenedor">
-                <span class="badge-label">Faltas Acumuladas</span>
-                <span class="badge-numero" style="color: {% if faltas == 0 %}#27ae60{% elif faltas < 3 %}#f39c12{% else %}#e74c3c{% endif %};">
-                    {{ faltas }}
-                </span>
-                <div class="badge-mensaje">
-                    {% if faltas == 0 %}
-                        <p style="color: #27ae60;">🌟 ¡Excelente compromiso!</p>
-                    {% elif faltas < 3 %}
-                        <p style="color: #f39c12;">👍 Vas bien. Recuerda avisar.</p>
-                    {% else %}
-                        <p style="color: #e74c3c;">🚨 ¡Cuidado! Revisa tus faltas.</p>
-                    {% endif %}
+            <div class="card-asistencia-inner">
+                <div class="asistencia-texto">
+                    <h3>Mi Estado de Asistencia</h3>
+                    <p>Tu compromiso con el servicio de alimentación.</p>
+                </div>
+                <div class="badge-faltas">
+                    <span class="badge-faltas-label">Faltas Acumuladas</span>
+                    <div class="badge-faltas-num
+                        {% if faltas == 0 %}color-green
+                        {% elif faltas < 3 %}color-amber
+                        {% else %}color-red{% endif %}">{{ faltas }}</div>
+                    <div class="badge-faltas-msg
+                        {% if faltas == 0 %}color-green
+                        {% elif faltas < 3 %}color-amber
+                        {% else %}color-red{% endif %}">
+                        {% if faltas == 0 %}🌟 ¡Excelente compromiso!
+                        {% elif faltas < 3 %}👍 Vas bien. Recuerda avisar.
+                        {% else %}🚨 ¡Cuidado! Revisa tus faltas.{% endif %}
+                    </div>
                 </div>
             </div>
         </div>
 
-        {% if reserva_activa %}
-        <div class="card card-exito">
-            <div class="exito-contenido">
-                <h3>✅ Tienes una reserva activa</h3>
-                <p>Preséntate en el casino para retirar tu menú reservado.</p>
-                <form id="form-retirar" action="{{ url_for('retirar', id_reserva=reserva_activa.id_reserva) }}" method="POST" onsubmit="return solicitarPasswordRetiro()">
-                    <button type="submit" class="btn-retirado">
-                        MARCAR COMO RETIRADO
-                    </button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
     </main>
 
+    <!-- =========================================
+         POPUP ESCÁNER QR
+    ========================================== -->
+    <div class="overlay" id="overlay-scanner">
+        <div class="popup-qr">
+            <div class="popup-qr-header">
+                <h4>📷 Escanear QR de Retiro</h4>
+                <button class="btn-cerrar-popup" onclick="cerrarScanner()" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="popup-qr-body">
+                <div class="scanner-area">
+                    <video id="qr-video" autoplay playsinline muted></video>
+                    <img id="qr-frozen" alt="Captura QR" />
+                    <div class="scan-frame"><div class="scan-frame-inner"></div></div>
+                    <div class="scan-line" id="scan-line"></div>
+                    <div class="scan-frozen-overlay" id="frozen-overlay">
+                        <div class="scan-spinner"></div>
+                        <span>Validando retiro…</span>
+                    </div>
+                </div>
+                <canvas id="qr-canvas"></canvas>
+                <p class="scanner-hint">Apunta la cámara al código QR del panel de cocina</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================
+         MODAL RETIRO CONFIRMADO
+    ========================================== -->
+    <div class="modal-overlay" id="modal-retiro">
+        <div class="modal-box">
+            <div class="modal-icon">✅</div>
+            <h3>¡Retiro confirmado!</h3>
+            <p>Tu menú fue retirado exitosamente.<br>¡Buen provecho! 🍽️</p>
+            <button class="btn-modal-ok" onclick="cerrarModalRetiro()">Cerrar</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
     <script>
-        function solicitarPasswordRetiro() {
-            const password = prompt("Confirmación del Chef: Ingresa la contraseña de retiro:");
-            if (!password) return false;
-            const form = document.getElementById("form-retirar");
-            const input = document.createElement("input");
-            input.type = "hidden"; input.name = "password_confirmacion"; input.value = password;
-            form.appendChild(input);
-            return true;
+    (function () {
+        const overlay       = document.getElementById('overlay-scanner');
+        const video         = document.getElementById('qr-video');
+        const frozen        = document.getElementById('qr-frozen');
+        const canvas        = document.getElementById('qr-canvas');
+        const ctx           = canvas.getContext('2d');
+        const scanLine      = document.getElementById('scan-line');
+        const frozenOverlay = document.getElementById('frozen-overlay');
+        const modalRetiro   = document.getElementById('modal-retiro');
+
+        let stream     = null;
+        let animId     = null;
+        let escaneando = false;
+        let yaEnviando = false;
+
+        window.abrirScanner = async function () {
+            frozen.style.display   = 'none';
+            video.style.display    = 'block';
+            scanLine.style.display = 'block';
+            frozenOverlay.classList.remove('active');
+            overlay.classList.add('active');
+            escaneando = true;
+            yaEnviando = false;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } }
+                });
+                video.srcObject = stream;
+                video.play();
+                video.addEventListener('loadedmetadata', tick, { once: true });
+            } catch (e) {
+                cerrarScanner();
+                alert('No se pudo acceder a la cámara. Verifica los permisos.');
+            }
+        };
+
+        function detenerCamara() {
+            escaneando = false;
+            cancelAnimationFrame(animId);
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         }
+
+        window.cerrarScanner = function () {
+            detenerCamara();
+            overlay.classList.remove('active');
+        };
+
+        function tick() {
+            if (!escaneando || yaEnviando) return;
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width  = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code      = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+                if (code) {
+                    yaEnviando = true;
+                    detenerCamara();
+                    frozen.src             = canvas.toDataURL();
+                    frozen.style.display   = 'block';
+                    video.style.display    = 'none';
+                    scanLine.style.display = 'none';
+                    frozenOverlay.classList.add('active');
+                    enviarToken(code.data);
+                    return;
+                }
+            }
+            animId = requestAnimationFrame(tick);
+        }
+
+        async function enviarToken(token) {
+            try {
+                const res  = await fetch('/retirar_qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    overlay.classList.remove('active');
+                    frozenOverlay.classList.remove('active');
+                    const cardReserva = document.querySelector('.card-reserva-activa');
+                    if (cardReserva) cardReserva.style.display = 'none';
+                    modalRetiro.classList.add('active');
+                } else {
+                    frozenOverlay.classList.remove('active');
+                    mostrarErrorEnPopup(data.error || 'QR inválido. Intenta de nuevo.');
+                }
+            } catch {
+                frozenOverlay.classList.remove('active');
+                mostrarErrorEnPopup('Error de conexión. Intenta de nuevo.');
+            }
+        }
+
+        function mostrarErrorEnPopup(msg) {
+            const hint = document.querySelector('.scanner-hint');
+            hint.style.color      = '#ef4444';
+            hint.style.fontWeight = '600';
+            hint.textContent = '⚠️ ' + msg;
+            const yaHayBtn = document.getElementById('btn-retry');
+            if (!yaHayBtn) {
+                const btn = document.createElement('button');
+                btn.id        = 'btn-retry';
+                btn.className = 'btn-retry';
+                btn.textContent = 'Volver a escanear';
+                btn.onclick = () => {
+                    hint.style.color      = '';
+                    hint.style.fontWeight = '';
+                    hint.textContent = 'Apunta la cámara al código QR del panel de cocina';
+                    btn.remove();
+                    abrirScanner();
+                };
+                hint.after(btn);
+            }
+        }
+
+        window.cerrarModalRetiro = function () {
+            modalRetiro.classList.remove('active');
+            const cardReserva = document.querySelector('.card-reserva-activa');
+            if (cardReserva) cardReserva.remove();
+        };
+
+        if (new URLSearchParams(location.search).get('retirado') === '1') {
+            modalRetiro.classList.add('active');
+            history.replaceState({}, '', location.pathname);
+        }
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) cerrarScanner();
+        });
+    })();
     </script>
+
 </body>
 </html>

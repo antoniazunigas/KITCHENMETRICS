@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KitchenMetrics - Panel de Cocina</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina.css') }}">
+
+    <!-- ── Estilos del filtro Lista de Entrega (sin tocar cocina.css) ── -->
     <style>
         .alerta-flotante { padding: 15px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .production-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
@@ -16,11 +18,11 @@
 
     <header class="cocina-header">
         <div class="logo-area">
-            <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo">
-            <h2 style="margin:0; font-size: 1.2rem;">{{ titulo }}</h2>
+            <img src="{{ url_for('static', filename='img/logo_kitchenmetrics.png') }}" alt="Logo KitchenMetrics">
+            <h2 class="header-titulo">{{ titulo }}</h2>
         </div>
         <div class="view-selector">
-            <a href="/cocina?modo=hoy" class="btn-toggle {{ 'active' if modo == 'hoy' else '' }}">HOY</a>
+            <a href="/cocina?modo=hoy"    class="btn-toggle {{ 'active' if modo == 'hoy' else '' }}">HOY</a>
             <a href="/cocina?modo=manana" class="btn-toggle {{ 'active' if modo == 'manana' else '' }}">MAÑANA</a>
         </div>
         <div class="user-area">
@@ -34,9 +36,9 @@
         <h3 class="section-title">📊 Planificación de Producción</h3>
         <div class="production-grid">
             {% set entradas = [] %}
-            {% set fondos = [] %}
-            {% set postres = [] %}
-            
+            {% set fondos   = [] %}
+            {% set postres  = [] %}
+
             {% for r in reservas %}
                 {% if r.jornada.menu_dia and r.jornada.menu_dia.detalles %}
                     {% for d in r.jornada.menu_dia.detalles %}
@@ -44,30 +46,45 @@
                         {% if d.orden in [2, 3, 4] and d.id_menu == r.jornada.id_menu %}
                             {% set _ = fondos.append(d.plato.nombre) %}
                         {% endif %}
-                        {% if d.orden == 5 %}{% set _ = postres.append(d.plato.nombre) %}{% endif %}
+                        {# Postre (orden 5): siempre se suma #}
+                        {% if d.orden == 5 %}
+                            {% set _ = postres.append(d.plato.nombre) %}
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
             {% endfor %}
 
-            <div class="card production-card">
+            <div class="production-card">
                 <h4 class="card-header entrada">🥗 Entradas</h4>
-                {% for p in entradas | unique %}
-                    <div class="item-resumen"><span>{{ p }}</span> <strong>{{ entradas.count(p) }}</strong></div>
-                {% else %}<p class="empty-msg">Sin entradas</p>{% endfor %}
+                <div class="card-body-inner">
+                    {% for p in entradas | unique %}
+                        <div class="item-resumen"><span>{{ p }}</span><strong>{{ entradas.count(p) }}</strong></div>
+                    {% else %}
+                        <p class="empty-msg">Sin entradas</p>
+                    {% endfor %}
+                </div>
             </div>
 
-            <div class="card production-card">
+            <div class="production-card">
                 <h4 class="card-header fondo">🍲 Fondos</h4>
-                {% for p in fondos | unique %}
-                    <div class="item-resumen"><span>{{ p }}</span> <strong>{{ fondos.count(p) }}</strong></div>
-                {% else %}<p class="empty-msg">Sin fondos</p>{% endfor %}
+                <div class="card-body-inner">
+                    {% for p in fondos | unique %}
+                        <div class="item-resumen"><span>{{ p }}</span><strong>{{ fondos.count(p) }}</strong></div>
+                    {% else %}
+                        <p class="empty-msg">Sin fondos</p>
+                    {% endfor %}
+                </div>
             </div>
 
-            <div class="card production-card">
+            <div class="production-card">
                 <h4 class="card-header postre">🍰 Postres</h4>
-                {% for p in postres | unique %}
-                    <div class="item-resumen"><span>{{ p }}</span> <strong>{{ postres.count(p) }}</strong></div>
-                {% else %}<p class="empty-msg">Sin postres</p>{% endfor %}
+                <div class="card-body-inner">
+                    {% for p in postres | unique %}
+                        <div class="item-resumen"><span>{{ p }}</span><strong>{{ postres.count(p) }}</strong></div>
+                    {% else %}
+                        <p class="empty-msg">Sin postres</p>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 
@@ -88,14 +105,33 @@
             </div>
         </section>
 
+        <!-- ===== LISTA DE ENTREGA DETALLADA ===== -->
         <section class="card">
-            <h3>📋 Lista de Entrega Detallada</h3>
+            <h3 class="section-title" style="border-bottom:none; margin-bottom:16px; color:var(--ck-primary-solid);">📋 Lista de Entrega Detallada</h3>
+
+            <!-- ── Barra de filtros ── -->
+            <div class="entrega-filtros">
+                <input
+                    type="text"
+                    id="filtro-busqueda"
+                    class="entrega-input-busqueda"
+                    placeholder="🔍 Nombre o RUT…"
+                    autocomplete="off"
+                >
+                <div class="entrega-pills">
+                    <button class="pill-estado active" data-filtro="todos">Todos</button>
+                    <button class="pill-estado" data-filtro="pendiente">Pendiente</button>
+                    <button class="pill-estado" data-filtro="retirado">Retirado</button>
+                </div>
+                <span class="entrega-contador" id="entrega-contador"></span>
+            </div>
+
             <table class="tabla-cocina">
                 <thead>
                     <tr>
-                        <th style="width: 25%;">Funcionario</th>
-                        <th style="width: 50%;">Bandeja</th>
-                        <th style="width: 25%;" class="text-center">Estado</th>
+                        <th class="col-funcionario">Funcionario</th>
+                        <th class="col-bandeja">Bandeja</th>
+                        <th class="col-estado">Estado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -147,6 +183,67 @@
                 </tbody>
             </table>
         </section>
+
     </main>
+
+    <!-- ── Lógica del filtro ── -->
+    <script>
+    (function () {
+        const tbody     = document.getElementById('tbody-entregas');
+        const inputBusq = document.getElementById('filtro-busqueda');
+        const pills     = document.querySelectorAll('.pill-estado');
+        const contador  = document.getElementById('entrega-contador');
+        const filaVacia = document.createElement('tr');
+
+        filaVacia.className = 'fila-sin-resultados';
+        filaVacia.innerHTML = '<td colspan="3">Sin resultados para los filtros aplicados.</td>';
+
+        let filtroEstado = 'todos';
+        let filtroBusq   = '';
+
+        function aplicarFiltros() {
+            const filas = Array.from(tbody.querySelectorAll('tr:not(.fila-sin-resultados)'));
+            let visibles = 0;
+
+            filas.forEach(function (tr) {
+                const estadoFila = tr.dataset.estado;
+                const textoFila  = tr.dataset.texto;
+
+                const pasaEstado = filtroEstado === 'todos' || estadoFila === filtroEstado;
+                const pasaBusq   = filtroBusq === '' || textoFila.includes(filtroBusq);
+
+                const mostrar = pasaEstado && pasaBusq;
+                tr.style.display = mostrar ? '' : 'none';
+                if (mostrar) visibles++;
+            });
+
+            const yaVacia = tbody.contains(filaVacia);
+            if (visibles === 0) {
+                if (!yaVacia) tbody.appendChild(filaVacia);
+            } else {
+                if (yaVacia) tbody.removeChild(filaVacia);
+            }
+
+            contador.innerHTML = 'Mostrando <strong>' + visibles + '</strong> de <strong>' + filas.length + '</strong>';
+        }
+
+        inputBusq.addEventListener('input', function () {
+            filtroBusq = this.value.trim().toLowerCase();
+            aplicarFiltros();
+        });
+
+        pills.forEach(function (pill) {
+            pill.addEventListener('click', function () {
+                pills.forEach(function (p) { p.classList.remove('active'); });
+                this.classList.add('active');
+                filtroEstado = this.dataset.filtro;
+                aplicarFiltros();
+            });
+        });
+
+        aplicarFiltros();
+    })();
+    </script>
+
 </body>
 </html>

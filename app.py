@@ -12,6 +12,8 @@ import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
+import hmac
+import hashlib
 
 import services.dashboard_service as dashboard_service
 
@@ -130,6 +132,7 @@ class Reserva(db.Model):
     id_reserva = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey("usuario.id_usuario"), nullable=False)
     id_jornada = db.Column(db.Integer, db.ForeignKey("jornada_cocina.id_jornada"), nullable=False)
+    id_plato_fondo = db.Column(db.Integer, db.ForeignKey("plato.id_plato"), nullable=True)
     fecha_reserva = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     estado = db.Column(db.String(20), nullable=False, default="confirmada")
     usuario = db.relationship("Usuario", back_populates="reservas")
@@ -226,11 +229,20 @@ def panel_funcionario():
     hoy = date.today()
     limite_hoy = datetime.combine(hoy, datetime.strptime("15:00", "%H:%M").time())
 
-    reservas_vencidas = Reserva.query.join(JornadaCocina).join(MenuDia).filter(
-        Reserva.id_usuario == user.id_usuario,
-        Reserva.estado == 'confirmada',
-        or_(MenuDia.fecha < hoy, (MenuDia.fecha == hoy) & (ahora > limite_hoy))
-    ).all()
+    reservas_vencidas = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user.id_usuario,
+            Reserva.estado == 'confirmada',
+            or_(
+                MenuDia.fecha < hoy,
+                (MenuDia.fecha == hoy) & (ahora > limite_hoy)
+            )
+        )
+        .all()
+    )
 
     if reservas_vencidas:
         for res in reservas_vencidas:
@@ -239,11 +251,48 @@ def panel_funcionario():
         db.session.commit()
 
     manana = hoy + timedelta(days=1)
-    jornadas = db.session.query(JornadaCocina).join(MenuDia).filter(
-        MenuDia.estado == 'activo', MenuDia.fecha == manana
-    ).all()
-    reserva_activa = Reserva.query.filter_by(id_usuario=user.id_usuario, estado='confirmada').first()
-    return render_template('funcionario.html', nombre=session['user_nombre'], jornadas=jornadas, faltas=user.faltas_acumuladas, reserva_activa=reserva_activa)
+    jornadas = (
+        db.session.query(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            MenuDia.estado == 'activo',
+            MenuDia.fecha == manana
+        )
+        .all()
+    )
+
+    reserva_activa = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user.id_usuario,
+            Reserva.estado == 'confirmada',
+            MenuDia.fecha == hoy          # solo HOY → card del QR
+        )
+        .first()
+    )
+
+    reserva_manana = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user.id_usuario,
+            Reserva.estado == 'confirmada',
+            MenuDia.fecha == manana       # solo MAÑANA → deshabilita botones
+        )
+        .first()
+    )
+
+    return render_template(
+        'funcionario.html',
+        nombre=session['user_nombre'],
+        jornadas=jornadas,
+        faltas=user.faltas_acumuladas,
+        reserva_activa=reserva_activa,
+        reserva_manana=reserva_manana
+    )
 
 @app.route('/reservar/<int:id_jornada>', methods=['POST'])
 @login_required(role='funcionario')
@@ -253,8 +302,14 @@ def reservar(id_jornada):
         flash("Sin cupos disponibles para este menú.", "warning")
         return redirect(url_for('panel_funcionario'))
 
+    id_plato = request.form.get('id_plato_seleccionado', type=int)
+
     try:
-        nueva_reserva = Reserva(id_usuario=session['user_id'], id_jornada=id_jornada)
+        nueva_reserva = Reserva(
+            id_usuario=session['user_id'],
+            id_jornada=id_jornada,
+            id_plato_fondo=id_plato
+        )
         jornada.raciones_disponibles -= 1
         db.session.add(nueva_reserva)
         db.session.commit()
@@ -272,12 +327,12 @@ def retirar(id_reserva):
     user = Usuario.query.get(session['user_id'])
     pass_confirm = request.form.get('password_confirmacion')
     if reserva and user.contrasena == pass_confirm:
-        reserva.estado = 'consumida'
+        reserva.estado = 'retirada'
         db.session.commit()
-        flash("Retiro confirmado.", "success")
+        return redirect(url_for('panel_funcionario', retirado='1'))
     else:
         flash("Clave incorrecta.", "danger")
-    return redirect(url_for('panel_funcionario'))
+        return redirect(url_for('panel_funcionario'))
 
 @app.route('/admin')
 @login_required(role='admin')
@@ -292,41 +347,117 @@ def panel_admin():
 def admin_dashboard_principal():
     period = request.args.get('period', 'week')
     today, start_date, prev_start, prev_end, period_label = dashboard_service._period_bounds(period)
-    
-    current_reservas = dashboard_service._reservas_base(start_date, today)
-    previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
-    
-    # 1. Obtenemos los KPIs generales
-    kpis = dashboard_service.calculate_dashboard_kpis(start_date, today, prev_start, prev_end, current_reservas, previous_reservas)
-    
-    # 2. Obtenemos los datos de mermas (donde incluimos tu tabla de cocina)
-    waste_data = dashboard_service.get_waste_context(start_date, today)
-    
-    # 3. ¡EL TRUCO FINAL!: Borramos la variable duplicada de kpis para que no choque con waste_data
-    kpis.pop('total_merma_cost', None)
-    kpis.pop('percent_desperdicio', None) # También por si acaso
+    manana = today + timedelta(days=1)
 
-    listas, charts = dashboard_service.get_dashboard_lists(start_date, today, current_reservas), dashboard_service.generate_dashboard_charts(start_date, today)
-    
-    extras = {
-        'usuarios_count': Usuario.query.count(),
-        'menus_count': MenuDia.query.filter(MenuDia.fecha.between(start_date, today)).count()
+    current_reservas  = dashboard_service._reservas_base(start_date, today)
+    previous_reservas = dashboard_service._reservas_base(prev_start, prev_end)
+
+    kpis   = dashboard_service.calculate_dashboard_kpis(
+        start_date, today, prev_start, prev_end, current_reservas, previous_reservas
+    )
+    listas = dashboard_service.get_dashboard_lists(start_date, today, current_reservas)
+    charts = dashboard_service.generate_dashboard_charts(start_date, today)
+    waste  = dashboard_service.get_waste_context(start_date, today)
+
+    kpis.pop('total_merma_cost', None)
+    kpis.pop('percent_desperdicio', None)
+    waste.pop('total_merma_cost', None)
+    waste.pop('percent_desperdicio', None)
+
+    # ── Reservas: hoy + mañana, ordenadas por fecha y estado ──────────────────
+    from sqlalchemy import case
+    reservas_gestion = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(MenuDia.fecha.in_([today, manana]))
+        .order_by(
+            MenuDia.fecha.asc(),
+            case(
+                (Reserva.estado == 'confirmada', 0),
+                (Reserva.estado == 'no_retirada', 1),
+                else_=2
+            ),
+            Reserva.fecha_reserva.desc()
+        )
+        .all()
+    )
+    listas['reservas_recientes'] = reservas_gestion
+    # ──────────────────────────────────────────────────────────────────────────
+
+    menus = MenuDia.query.filter(MenuDia.fecha >= today).order_by(MenuDia.fecha).all()
+    menus_por_fecha = {
+        str(m.fecha): {
+            'id_menu': m.id_menu,
+            'estado': m.estado,
+            'detalles': [{'orden': d.orden, 'id_plato': d.id_plato} for d in m.detalles],
+            'jornada': {
+                'raciones_planificadas': m.jornadas[0].raciones_planificadas if m.jornadas else 100,
+                'raciones_preparadas':   m.jornadas[0].raciones_preparadas   if m.jornadas else 0,
+                'raciones_disponibles':  m.jornadas[0].raciones_disponibles  if m.jornadas else 0,
+            }
+        }
+        for m in menus
     }
 
-    return render_template('dashboard.html',
-        nombre=session.get('user_nombre'), 
-        period=period, 
+    platos_list = [
+        {'id_plato': p.id_plato, 'nombre': p.nombre,
+         'tipo_plato': p.tipo_plato, 'tipo_dieta': p.tipo_dieta}
+        for p in Plato.query.all()
+    ]
+
+    from sqlalchemy import func as sqlfunc
+    rows = (
+        db.session.query(MermaIngrediente.fecha, sqlfunc.count())
+        .group_by(MermaIngrediente.fecha)
+        .filter(MermaIngrediente.fecha >= start_date)
+        .all()
+    )
+    mermas_por_fecha = {str(r[0]): {'count': r[1]} for r in rows}
+
+    mermas_ingrediente_recientes = (
+        MermaIngrediente.query
+        .order_by(MermaIngrediente.fecha.desc())
+        .limit(30).all()
+    )
+
+    context = {}
+    for d in (
+        kpis,
+        listas,
+        charts,
+        waste,
+        {'menus_por_fecha': menus_por_fecha},
+        {'platos_list': platos_list},
+        {'mermas_por_fecha': mermas_por_fecha},
+        {'lotes_list': LoteIngrediente.query.all()},
+        {'jornadas_list': JornadaCocina.query.order_by(
+            JornadaCocina.id_jornada.desc()).limit(30).all()},
+        {'mermas_recientes': mermas_ingrediente_recientes},
+    ):
+        for k, v in d.items():
+            if k not in context:
+                context[k] = v
+
+    # ── Inventario ─────────────────────────────────────────────────────────────
+    context.update(dashboard_service.get_inventory_context())
+
+    # ── Usuarios — FALTABA esta llamada, causaba todos los contadores en 0 ────
+    context.update(dashboard_service.get_users_context())
+    # ──────────────────────────────────────────────────────────────────────────
+
+    return render_template(
+        'dashboard.html',
+        nombre=session.get('user_nombre'),
+        period=period,
         period_label=period_label,
-        start_date_str=start_date.strftime('%Y-%m-%d'), 
+        start_date_str=start_date.strftime('%Y-%m-%d'),
         today_str=today.strftime('%Y-%m-%d'),
-        current_year=today.year, 
-        **kpis, 
-        **listas, 
-        **charts, 
-        **extras,
-        **dashboard_service.get_inventory_context(),
-        **waste_data, # Ahora este entra solito sin pelearse con nadie
-        **dashboard_service.get_users_context())
+        manana_str=manana.strftime('%Y-%m-%d'),
+        current_year=today.year,
+        **context
+    )
+
 
 @app.route('/admin/usuario/crear', methods=['POST'])
 @login_required(role='admin')
@@ -445,6 +576,30 @@ def admin_usuario_desbloquear(id_usuario):
     except Exception: db.session.rollback(); flash("Ocurrió un error al desbloquear el usuario.","danger")
     return redirect(request.referrer or url_for('admin_dashboard_principal'))
 
+@app.route('/admin/reserva/eliminar', methods=['POST'])
+@login_required(role='admin')
+def admin_reserva_eliminar():
+    from flask import jsonify
+    data       = request.get_json(silent=True) or {}
+    id_reserva = data.get('id_reserva')
+ 
+    if not id_reserva:
+        return jsonify({'success': False, 'error': 'id_reserva requerido'}), 400
+ 
+    reserva = db.session.get(Reserva, int(id_reserva))
+    if not reserva:
+        return jsonify({'success': False, 'error': 'Reserva no encontrada'}), 404
+ 
+    try:
+        # Eliminar consumos asociados primero (FK constraint)
+        Consumo.query.filter_by(id_reserva=reserva.id_reserva).delete()
+        db.session.delete(reserva)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
 
 # REPORTEES CSV PARA DESCARGA DESDE DASHBOARD
 @app.route('/admin/dashboard/exportar-csv')
@@ -556,46 +711,60 @@ def registrar_merma():
 @app.route('/cocina')
 @login_required(role='cocina')
 def panel_cocina():
-    modo = request.args.get('modo', 'hoy')
+    modo          = request.args.get('modo', 'hoy')
     fecha_consulta = date.today() + timedelta(days=1) if modo == 'manana' else date.today()
-    titulo_panel = "Planificación de Producción - MAÑANA" if modo == 'manana' else "Panel de Control de Entregas - HOY"
-
-    reservas_lista = Reserva.query.join(JornadaCocina).join(MenuDia).filter(MenuDia.fecha == fecha_consulta).all()
-
-    resumen_platos = {}
+    titulo_panel  = "Planificación de Producción - MAÑANA" if modo == 'manana' else "Panel de Control de Entregas - HOY"
+ 
+    reservas_lista = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(MenuDia.fecha == fecha_consulta)
+        .all()
+    )
+ 
+    resumen_platos       = {}
     calculo_ingredientes = {}
-
+ 
     for r in reservas_lista:
-        if r.estado != 'no_retirada':
-            # 1. Identificar la opción de fondo (1, 2 o 3)
-            n_opcion = (r.id_jornada % 3)
-            orden_fondo = 2 if n_opcion == 1 else (3 if n_opcion == 2 else 4)
-
-            # 2. Recorrer platos del menú de ese día
-            for detalle in r.jornada.menu_dia.detalles:
-                nom = detalle.plato.nombre
-                
-                # Sumamos el fondo elegido, la entrada (orden 1) y el postre (orden 5)
-                if detalle.orden == orden_fondo or detalle.orden == 1 or detalle.orden == 5:
-                    resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
-
-                # 3. CÁLCULO DE INSUMOS
-                if detalle.plato.recetas:
-                    for item in detalle.plato.recetas:
-                        ing_nombre = str(item.ingrediente.nombre)
-                        if ing_nombre not in calculo_ingredientes:
-                            calculo_ingredientes[ing_nombre] = {
-                                'cantidad': 0.0, 
-                                'unidad': str(item.ingrediente.unidad_medida)
-                            }
-                        
-                        try:
-                            valor_nuevo = float(item.cantidad_por_porcion)
-                            valor_actual = float(calculo_ingredientes[ing_nombre]['cantidad'])
-                            calculo_ingredientes[ing_nombre]['cantidad'] = valor_actual + valor_nuevo
-                        except (ValueError, TypeError):
-                            continue
-
+        # Excluir reservas no retiradas del resumen de producción
+        if r.estado == 'no_retirada':
+            continue
+ 
+        if not (r.jornada and r.jornada.menu_dia and r.jornada.menu_dia.detalles):
+            continue
+ 
+        for detalle in r.jornada.menu_dia.detalles:
+            nom = detalle.plato.nombre
+ 
+            # ── Entrada (orden 1) y Postre (orden 5): siempre se cuentan ──────
+            if detalle.orden in (1, 5):
+                resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
+ 
+            # ── Fondo: SOLO el que el usuario eligió realmente ──────────────
+            # Se compara con r.id_plato_fondo, que es el campo guardado al reservar
+            elif detalle.orden in (2, 3, 4) and detalle.id_plato == r.id_plato_fondo:
+                resumen_platos[nom] = resumen_platos.get(nom, 0) + 1
+ 
+            # ── Cálculo de insumos: misma lógica de qué platos se sirven ──────
+            sirve = (
+                detalle.orden in (1, 5) or
+                (detalle.orden in (2, 3, 4) and detalle.id_plato == r.id_plato_fondo)
+            )
+ 
+            if sirve and detalle.plato.recetas:
+                for item in detalle.plato.recetas:
+                    ing_nombre = str(item.ingrediente.nombre)
+                    if ing_nombre not in calculo_ingredientes:
+                        calculo_ingredientes[ing_nombre] = {
+                            'cantidad': 0.0,
+                            'unidad':   str(item.ingrediente.unidad_medida)
+                        }
+                    try:
+                        calculo_ingredientes[ing_nombre]['cantidad'] += float(item.cantidad_por_porcion)
+                    except (ValueError, TypeError):
+                        continue
+ 
     return render_template(
         'cocina.html',
         nombre=session['user_nombre'],
@@ -605,7 +774,8 @@ def panel_cocina():
         fecha_ver=fecha_consulta,
         titulo=titulo_panel,
         modo=modo,
-        datetime=datetime
+        datetime=datetime,
+        qr_token_dia=_generar_token_dia()
     )
 
 
@@ -967,6 +1137,82 @@ def jc_merma_plato_registrar():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# ENDPOINTS JSON — Panel Cocina (QR dinámico para retiro sin contacto)
+# ============================================================
+
+def _generar_token_dia():
+    """
+    Genera un token HMAC-SHA256 basado en la fecha de HOY y el secret_key.
+    Cambia automáticamente cada día. No requiere BD.
+    """
+    fecha_str = date.today().isoformat()          # ej: "2026-04-30"
+    token = hmac.new(
+        app.secret_key.encode(),
+        fecha_str.encode(),
+        hashlib.sha256
+    ).hexdigest()[:16]                             # 16 chars, suficiente para un QR
+    return token
+ 
+ 
+@app.route('/qr/token-dia')
+@login_required(role='cocina')
+def qr_token_dia():
+    """
+    Devuelve el token del día como JSON.
+    Lo usa cocina.html para generar el QR vía api.qrserver.com.
+    """
+    from flask import jsonify
+    return jsonify({'token': _generar_token_dia(), 'fecha': date.today().isoformat()})
+ 
+ 
+@app.route('/retirar_qr', methods=['POST'])
+@login_required(role='funcionario')
+def retirar_qr():
+    """
+    El funcionario escanea el QR → el JS envía el token aquí.
+    Si el token es válido para HOY y el funcionario tiene una reserva
+    confirmada para HOY, se marca como consumida.
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    token_recibido = data.get('token', '').strip()
+ 
+    token_esperado = _generar_token_dia()
+ 
+    if not hmac.compare_digest(token_recibido, token_esperado):
+        return jsonify({'success': False, 'error': 'QR inválido o expirado. Pide al chef que actualice la pantalla.'}), 400
+ 
+    hoy = date.today()
+    user_id = session['user_id']
+ 
+    # Buscar reserva confirmada del funcionario para HOY
+    reserva = (
+        Reserva.query
+        .join(JornadaCocina)
+        .join(MenuDia)
+        .filter(
+            Reserva.id_usuario == user_id,
+            Reserva.estado == 'confirmada',
+            MenuDia.fecha == hoy
+        )
+        .first()
+    )
+ 
+    if not reserva:
+        return jsonify({'success': False, 'error': 'No tienes una reserva activa para hoy.'}), 404
+ 
+    try:
+        reserva.estado = 'retirada'
+        db.session.commit()
+        return jsonify({'success': True, 'mensaje': '¡Retiro confirmado! Buen provecho 🍽️'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+
 
 if __name__ == '__main__':
     with app.app_context():
