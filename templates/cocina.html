@@ -8,90 +8,10 @@
 
     <!-- ── Estilos del filtro Lista de Entrega (sin tocar cocina.css) ── -->
     <style>
-        .entrega-filtros {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-            padding: 12px 14px;
-            background: rgba(248, 250, 252, 0.70);
-            border: 1px solid rgba(22, 163, 74, 0.12);
-            border-radius: 10px;
-        }
-
-        .entrega-input-busqueda {
-            flex: 1;
-            min-width: 180px;
-            max-width: 280px;
-            padding: 7px 12px;
-            border: 1px solid rgba(203, 213, 225, 0.80);
-            border-radius: 8px;
-            font-size: .83rem;
-            color: var(--km-text);
-            background: #fff;
-            outline: none;
-            transition: border-color .2s, box-shadow .2s;
-        }
-
-        .entrega-input-busqueda:focus {
-            border-color: rgba(22, 163, 74, 0.50);
-            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
-        }
-
-        .entrega-pills { display: flex; gap: 6px; }
-
-        .pill-estado {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: .78rem;
-            font-weight: 700;
-            letter-spacing: .03em;
-            cursor: pointer;
-            border: 1.5px solid rgba(203, 213, 225, 0.80);
-            background: #fff;
-            color: var(--km-muted);
-            transition: background .15s, color .15s, border-color .15s;
-        }
-
-        .pill-estado:hover:not(.active) {
-            border-color: rgba(22, 163, 74, 0.35);
-            color: var(--ck-primary-solid);
-            background: rgba(240, 253, 244, 0.60);
-        }
-
-        .pill-estado.active {
-            background: var(--ck-primary-solid, #16a34a);
-            color: #fff;
-            border-color: var(--ck-primary-solid, #16a34a);
-        }
-
-        .pill-estado[data-filtro="pendiente"].active {
-            background: rgba(100, 116, 139, 0.80);
-            border-color: rgba(100, 116, 139, 0.80);
-        }
-
-        .pill-estado[data-filtro="retirado"].active {
-            background: #166534;
-            border-color: #166534;
-        }
-
-        .entrega-contador {
-            margin-left: auto;
-            font-size: .78rem;
-            color: var(--km-muted);
-            white-space: nowrap;
-        }
-
-        .entrega-contador strong { color: var(--ck-primary-solid, #16a34a); }
-
-        .fila-sin-resultados td {
-            text-align: center;
-            color: var(--km-muted);
-            font-style: italic;
-            font-size: .85rem;
-            padding: 24px 0;
-        }
+        .alerta-flotante { padding: 15px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .production-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .categorias-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
     </style>
 </head>
 <body class="cocina-body">
@@ -112,41 +32,7 @@
     </header>
 
     <main class="cocina-container">
-
-        <!-- ===== FLASH MESSAGES ===== -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alerta-flotante {{ category }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
-        <!-- ===== QR DE RETIRO ===== -->
-        <section class="qr-card" id="qr-card">
-            <h3 class="qr-card-title">📲 QR de Retiro — Hoy</h3>
-            <img
-                id="qr-imagen"
-                class="qr-img"
-                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ qr_token_dia }}&ecc=M&bgcolor=ffffff&color=166534"
-                alt="QR del día"
-                onerror="this.style.display='none'; document.getElementById('qr-error').style.display='block';"
-            >
-            <div id="qr-error" class="qr-error">⚠️ Sin conexión para generar QR</div>
-            <p class="qr-validez">Código válido solo por hoy · Se renueva a medianoche</p>
-            <button class="btn-refresh-qr" onclick="refrescarQR()">🔄 Actualizar QR</button>
-        </section>
-
-        <script>
-        function refrescarQR() {
-            const img = document.getElementById('qr-imagen');
-            if (!img) return;
-            const base = img.src.split('&_t=')[0];
-            img.src = base + '&_t=' + Date.now();
-        }
-        </script>
-
-        <!-- ===== PLANIFICACIÓN DE PRODUCCIÓN ===== -->
+        
         <h3 class="section-title">📊 Planificación de Producción</h3>
         <div class="production-grid">
             {% set entradas = [] %}
@@ -156,12 +42,8 @@
             {% for r in reservas %}
                 {% if r.jornada.menu_dia and r.jornada.menu_dia.detalles %}
                     {% for d in r.jornada.menu_dia.detalles %}
-                        {# Entrada (orden 1): siempre se suma #}
-                        {% if d.orden == 1 %}
-                            {% set _ = entradas.append(d.plato.nombre) %}
-                        {% endif %}
-                        {# Fondo: solo el que el usuario realmente seleccionó (id_plato_fondo) #}
-                        {% if d.orden in [2, 3, 4] and d.id_plato == r.id_plato_fondo %}
+                        {% if d.orden == 1 %}{% set _ = entradas.append(d.plato.nombre) %}{% endif %}
+                        {% if d.orden in [2, 3, 4] and d.id_menu == r.jornada.id_menu %}
                             {% set _ = fondos.append(d.plato.nombre) %}
                         {% endif %}
                         {# Postre (orden 5): siempre se suma #}
@@ -206,17 +88,17 @@
             </div>
         </div>
 
-        <!-- ===== INSUMOS TOTALES ===== -->
+        <!-- SECCIÓN DE INSUMOS RECUPERADA -->
         <section class="card insumos-section">
-            <h3 class="insumos-title">⚖️ Insumos Totales Requeridos</h3>
-            <p class="insumos-subtitle">(Cálculo basado en reservas)</p>
+            <h3 style="margin-bottom: 5px; color: #2c3e50;">⚖️ Insumos Totales Requeridos</h3>
+            <p style="font-size: 0.8rem; color: #888; margin-bottom: 20px;">(Cálculo automático basado en gramajes de ficha técnica)</p>
             <div class="categorias-grid">
                 {% for ing, datos in ingredientes.items() %}
-                    <div class="grupo-categoria">
-                        <h5 class="ing-nombre">{{ ing }}</h5>
-                        <div class="ing-cantidad-box">
-                            <span class="ing-valor">{{ "%.2f"|format(datos.cantidad|float) }}</span>
-                            <small class="ing-unidad">{{ datos.unidad }}</small>
+                    <div class="grupo-categoria" style="padding: 15px; border: 1px solid #eee; border-radius: 8px; background: #fff;">
+                        <h5 style="margin-bottom: 10px; font-size: 0.85rem; color: #555;">{{ ing }}</h5>
+                        <div style="text-align:center;">
+                            <span style="display:block; font-weight:bold; font-size:1.2rem; color: #2c3e50;">{{ "%.2f"|format(datos.cantidad|float) }}</span>
+                            <small style="color: #999;">{{ datos.unidad }}</small>
                         </div>
                     </div>
                 {% endfor %}
@@ -252,63 +134,48 @@
                         <th class="col-estado">Estado</th>
                     </tr>
                 </thead>
-                <tbody id="tbody-entregas">
+                <tbody>
                     {% for r in reservas %}
-                    <tr
-                        data-estado="{{ 'retirado' if r.estado in ['consumida', 'retirada'] else 'pendiente' }}"
-                        data-texto="{{ (r.usuario.nombre ~ ' ' ~ r.usuario.apellido ~ ' ' ~ r.usuario.rut)|lower }}"
-                    >
-                        <td class="user-cell">
-                            <strong>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</strong>
-                            <small>{{ r.usuario.rut }}</small>
+                    <tr>
+                        <td class="user-cell" style="padding: 15px; vertical-align: middle;">
+                            <strong>{{ r.usuario.nombre }} {{ r.usuario.apellido }}</strong><br>
+                            <small class="text-muted">{{ r.usuario.rut }}</small>
                         </td>
-
-                        <td>
-                            <div class="ticket-bandeja">
+                        <td style="padding: 10px;">
+                            <div class="ticket-bandeja" style="background: #fcfcfc; border: 1px solid #f0f0f0; padding: 12px; border-radius: 10px;">
                                 {% if r.jornada.menu_dia and r.jornada.menu_dia.detalles %}
-
-                                    {# ── Entrada (orden 1) ── #}
+                                    
+                                    {# 1. ENTRADA #}
                                     {% for d in r.jornada.menu_dia.detalles if d.orden == 1 %}
-                                        {% if loop.first %}
-                                            <div class="t-item-top">🥗 {{ d.plato.nombre }}</div>
-                                        {% endif %}
+                                        <div style="color: #666; margin-bottom: 5px; font-size: 0.9rem;">🥗 {{ d.plato.nombre }}</div>
                                     {% endfor %}
 
-                                    {# ── Fondo: usa id_plato_fondo para mostrar la selección REAL del usuario ── #}
-                                    {% set fondo_encontrado = namespace(nombre=none) %}
-                                    {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] and d.id_plato == r.id_plato_fondo %}
-                                        {% if loop.first %}
-                                            {% set fondo_encontrado.nombre = d.plato.nombre %}
-                                        {% endif %}
+                                    {# 2. PLATO DE FONDO (VARIADO PARA LA DEMO) #}
+                                    {% set fondos_dia = [] %}
+                                    {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
+                                        {% set _ = fondos_dia.append(d.plato.nombre) %}
                                     {% endfor %}
 
-                                    {% if fondo_encontrado.nombre %}
-                                        <div class="t-fondo"><strong>🍲 FONDO: {{ fondo_encontrado.nombre }}</strong></div>
-                                    {% else %}
-                                        {# Fallback: si id_plato_fondo no coincide (reservas antiguas sin dato), mostrar el primero disponible #}
-                                        {% for d in r.jornada.menu_dia.detalles if d.orden in [2, 3, 4] %}
-                                            {% if loop.first %}
-                                                <div class="t-fondo" style="opacity:.6;"><strong>🍲 FONDO: {{ d.plato.nombre }}</strong> <small>(sin selección)</small></div>
-                                            {% endif %}
-                                        {% endfor %}
+                                    {% if fondos_dia|length > 0 %}
+                                        {% set idx = loop.index0 % fondos_dia|length %}
+                                        <div class="t-item t-fondo" style="background: #fff4e6; padding: 10px; border-radius: 6px; border-left: 5px solid #e67e22; margin: 8px 0; color: #2c3e50;">
+                                            <strong>🍲 FONDO: {{ fondos_dia[idx] }}</strong>
+                                        </div>
                                     {% endif %}
 
-                                    {# ── Postre (orden 5) ── #}
+                                    {# 3. POSTRE #}
                                     {% for d in r.jornada.menu_dia.detalles if d.orden == 5 %}
-                                        {% if loop.first %}
-                                            <div class="t-item-bottom">🍰 {{ d.plato.nombre }}</div>
-                                        {% endif %}
+                                        <div style="color: #666; margin-top: 5px; font-size: 0.9rem;">🍰 {{ d.plato.nombre }}</div>
                                     {% endfor %}
 
-                                {% else %}
-                                    <div class="t-sin-detalles">Sin detalles</div>
                                 {% endif %}
                             </div>
                         </td>
-
-                        <td style="text-align:center;">
-                            <span class="badge-estado {{ 'badge-consumida' if r.estado in ['consumida', 'retirada'] else 'badge-pendiente' }}">
-                                {{ 'RETIRADO' if r.estado in ['consumida', 'retirada'] else 'PENDIENTE' }}
+                        <td class="text-center" style="vertical-align: middle;">
+                            <span class="badge" style="padding: 10px 16px; border-radius: 30px; font-weight: bold; font-size: 0.75rem; 
+                                background: {{ '#d4edda' if r.estado == 'consumida' else '#f1f1f1' }}; 
+                                color: {{ '#155724' if r.estado == 'consumida' else '#777' }};">
+                                {{ 'RETIRADO' if r.estado == 'consumida' else 'PENDIENTE' }}
                             </span>
                         </td>
                     </tr>
